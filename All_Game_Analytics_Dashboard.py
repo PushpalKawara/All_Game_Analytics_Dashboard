@@ -14,6 +14,7 @@ from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.hyperlink import Hyperlink
 import zipfile
 import tempfile
+import shutil
 
 # Set page config
 st.set_page_config(page_title="Game_Analytics", layout="wide")
@@ -62,7 +63,7 @@ def process_file(df, file_type):
 
     return df
 
-def generate_excel(df_export, retention_fig, drop_fig, drop_comb_fig):
+def generate_excel(df_export, retention_fig, drop_fig, drop_comb_fig, version, date_selected):
     """Generate Excel file with formatted sheets"""
     output = BytesIO()
 
@@ -298,11 +299,45 @@ def process_folder(uploaded_folder, folder_type):
         st.error(f"Error processing {folder_type} folder: {str(e)}")
         return None
 
+def get_max_min_start_user_info(df_start):
+    """Get max/min level and user count from start data"""
+    if df_start is None or 'Start Users' not in df_start.columns or 'LEVEL_CLEAN' not in df_start.columns:
+        return None
+
+    max_level = df_start['LEVEL_CLEAN'].max()
+    max_level_user_count = df_start.loc[df_start['LEVEL_CLEAN'] == max_level, 'Start Users'].values[0]
+
+    min_level = df_start['LEVEL_CLEAN'].min()
+    min_level_user_count = df_start.loc[df_start['LEVEL_CLEAN'] == min_level, 'Start Users'].values[0]
+
+    return {
+        'max_level': max_level,
+        'max_level_user_count': max_level_user_count,
+        'min_level': min_level,
+        'min_level_user_count': min_level_user_count
+    }
+
+def prepare_locate_sheet_data(file_info_list):
+    """Prepare data for the locate sheet"""
+    locate_data = []
+
+    for idx, file_info in enumerate(file_info_list, start=1):
+        locate_data.append({
+            'Sr No': idx,
+            'File Name': file_info['file_name'],
+            'Max Start Level': file_info['max_level'],
+            'User Count (Max Level)': file_info['max_level_user_count'],
+            'Min Start Level': file_info['min_level'],
+            'User Count (Min Level)': file_info['min_level_user_count'],
+            'Sheet Name': file_info['sheet_name']
+        })
+
+    return pd.DataFrame(locate_data)
+
 # -------------------- MAIN FUNCTION -------------------- #
 def main():
     # -------------- FILE UPLOAD SECTION ------------------ #
     st.sidebar.header("Upload Data")
-    # Allow multiple file types for folder upload
     start_folder = st.sidebar.file_uploader(
         "📂 Upload LEVEL_START Folder (ZIP or folder with CSVs)",
         type=["zip", "csv", "tar", "gz"]
@@ -325,7 +360,14 @@ def main():
                 st.error("Failed to process one or both folders. Please check that they contain valid CSV files.")
                 return
 
-            # Rest of your processing logic...
+            # Get max/min info for locate sheet
+            start_info = get_max_min_start_user_info(df_start)
+            complete_info = get_max_min_start_user_info(df_complete)
+
+            if not start_info or not complete_info:
+                st.error("Could not extract level information from the data.")
+                return
+
             # ------------ MERGE AND CALCULATE METRICS ------------- #
             df = pd.merge(df_start, df_complete, on='LEVEL_CLEAN', how='outer').sort_values('LEVEL_CLEAN')
 
@@ -451,7 +493,7 @@ def main():
             st.dataframe(df_export)
 
             # Generate and download Excel
-            excel_data = generate_excel(df_export, retention_fig, drop_fig, drop_comb_fig, version, date_selected)
+            excel_data = generate_excel(df_export, retention_fig, drop_fig, drop_comb_fig)
 
             # Create download button
             st.download_button(
