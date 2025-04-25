@@ -290,7 +290,95 @@ def main():
 
             if df_start is None or df_complete is None:
                 st.error("Failed to process one or both folders. Please check the files.")
+                returndef process_folder(uploaded_folder, folder_type):
+    """Process uploaded folder containing CSV files and return combined DataFrame"""
+    temp_dir = tempfile.mkdtemp()
+    all_dfs = []
+
+    try:
+        # Save the uploaded file to temp directory
+        upload_path = os.path.join(temp_dir, uploaded_folder.name)
+        with open(upload_path, "wb") as f:
+            f.write(uploaded_folder.getbuffer())
+
+        # Handle ZIP files
+        if zipfile.is_zipfile(upload_path):
+            with zipfile.ZipFile(upload_path, 'r') as zip_ref:
+                zip_ref.extractall(temp_dir)
+            # Remove the zip file after extraction
+            os.remove(upload_path)
+        
+        # Walk through the temp directory to find CSV files
+        for root, _, files in os.walk(temp_dir):
+            for file in files:
+                file_lower = file.lower()
+                
+                # Only process CSV files
+                if file_lower.endswith('.csv'):
+                    file_path = os.path.join(root, file)
+                    try:
+                        # Read CSV file with error handling for different encodings
+                        try:
+                            df = pd.read_csv(file_path)
+                        except UnicodeDecodeError:
+                            df = pd.read_csv(file_path, encoding='latin1')
+                        
+                        # Process the file
+                        processed_df = process_file(df, folder_type)
+                        if processed_df is not None:
+                            all_dfs.append(processed_df)
+                    except Exception as e:
+                        st.warning(f"Could not process file {file}: {str(e)}")
+                        continue
+        
+        # Clean up temp directory
+        for root, dirs, files in os.walk(temp_dir, topdown=False):
+            for name in files:
+                os.remove(os.path.join(root, name))
+            for name in dirs:
+                os.rmdir(os.path.join(root, name))
+        os.rmdir(temp_dir)
+
+        if not all_dfs:
+            st.error(f"No valid CSV files found in the {folder_type} folder.")
+            return None
+
+        # Combine all DataFrames and group by level
+        combined_df = pd.concat(all_dfs, ignore_index=True)
+        return combined_df.groupby('LEVEL_CLEAN').sum().reset_index()
+
+    except Exception as e:
+        st.error(f"Error processing {folder_type} folder: {str(e)}")
+        return None
+
+# -------------------- MAIN FUNCTION -------------------- #
+def main():
+    # -------------- FILE UPLOAD SECTION ------------------ #
+    st.sidebar.header("Upload Data")
+    # Allow multiple file types for folder upload
+    start_folder = st.sidebar.file_uploader(
+        "📂 Upload LEVEL_START Folder (ZIP or folder with CSVs)", 
+        type=["zip", "csv", "tar", "gz"]
+    )
+    complete_folder = st.sidebar.file_uploader(
+        "📂 Upload LEVEL_COMPLETE Folder (ZIP or folder with CSVs)", 
+        type=["zip", "csv", "tar", "gz"]
+    )
+
+    version = st.sidebar.text_input("📌 Game Version", value="1.0.0")
+    date_selected = st.sidebar.date_input("📅 Select Date", value=datetime.date.today())
+
+    if start_folder and complete_folder:
+        with st.spinner("Processing files..."):
+            # Process folders
+            df_start = process_folder(start_folder, 'start')
+            df_complete = process_folder(complete_folder, 'complete')
+
+            if df_start is None or df_complete is None:
+                st.error("Failed to process one or both folders. Please check that they contain valid CSV files.")
                 return
+            
+            # Rest of your processing logic...
 
             # ------------ MERGE AND CALCULATE METRICS ------------- #
             df = pd.merge(df_start, df_complete, on='LEVEL_CLEAN', how='outer').sort_values('LEVEL_CLEAN')
