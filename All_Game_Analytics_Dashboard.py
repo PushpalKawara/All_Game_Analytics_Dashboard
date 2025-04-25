@@ -180,7 +180,7 @@ def generate_excel(df_dict, version, date_selected):
         if main_tab_data:
             main_tab_df = pd.DataFrame(main_tab_data)
             main_tab_df['Index'] = range(1, len(main_tab_df) + 1)
-            main_tab_df['Link to Sheet'] = [f'=HYPERLINK("#{row["Sheet Name"]!A1","Click to view {row["Sheet Name"]}")'
+            main_tab_df['Link to Sheet'] = [f'=HYPERLINK("#["Sheet Name"]!A1","Click to view {row["Sheet Name"]}")'
                                           for _, row in main_tab_df.iterrows()]
 
             # Reorder columns
