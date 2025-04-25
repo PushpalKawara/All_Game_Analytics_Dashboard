@@ -4,9 +4,6 @@ __pycache__/
 *.pyd
 *.db
 *.sqlite3
-*.xlsx
-*.csv
-*.zip
 .env
 .vscode/
 .idea/
