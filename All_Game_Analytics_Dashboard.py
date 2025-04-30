@@ -1,4 +1,3 @@
-
 # ========================== Step 1: Required Imports ========================== #
 import streamlit as st
 import pandas as pd
@@ -44,7 +43,7 @@ def load_and_clean_file(file_obj, is_start_file=True):
 
         level_col = next((col for col in df.columns if 'LEVEL' in col), None)
         if level_col:
-            df['LEVEL'] = df[level_col].astype(str).str.extract(r'(\d+)').astype(int)
+            df['LEVEL'] = df[level_col].astype(str).str.extract('(\d+)').astype(int)
 
         user_col = next((col for col in df.columns if 'USER' in col), None)
         if user_col:
@@ -76,16 +75,19 @@ def create_charts(df, version, date_selected):
     charts = {}
     df_100 = df[df['LEVEL'] <= 100].copy()
 
+    # Retention Chart
     fig1, ax1 = plt.subplots(figsize=(15, 7))
     ax1.plot(df_100['LEVEL'], df_100['RETENTION_%'], color='#F57C00', linewidth=2)
     format_chart(ax1, "Retention Chart", version, date_selected)
     charts['retention'] = fig1
 
+    # Total Drop Chart
     fig2, ax2 = plt.subplots(figsize=(15, 6))
     ax2.bar(df_100['LEVEL'], df_100['TOTAL_LEVEL_DROP'], color='#EF5350')
     format_chart(ax2, "Total Level Drop Chart", version, date_selected)
     charts['total_drop'] = fig2
 
+    # Combo Drop Chart
     fig3, ax3 = plt.subplots(figsize=(15, 6))
     width = 0.4
     ax3.bar(df_100['LEVEL'] + width/2, df_100['GAME_PLAY_DROP'], width, color='#66BB6A')
