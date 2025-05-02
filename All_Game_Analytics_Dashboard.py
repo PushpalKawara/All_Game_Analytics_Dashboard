@@ -1,23 +1,18 @@
 # ========================== Step 1: Required Imports ==========================
-
 import streamlit as st
 import pandas as pd
 import numpy as np
 import os
-import re
 import datetime
 import matplotlib.pyplot as plt
 from io import BytesIO
-from pathlib import Path
 import tempfile
 
 # ========================== Step 2: Streamlit Config ==========================
-
 st.set_page_config(page_title="GAME PROGRESSION", layout="wide")
 st.title("📊 GAME PROGRESSION Dashboard")
 
 # ========================== Step 3: Core Functions ==========================
-
 def process_game_data(start_files, complete_files):
     processed_games = {}
 
@@ -71,7 +66,6 @@ def merge_and_calculate(start_df, complete_df):
     return merged.round(2)
 
 # ========================== Step 4: Charting Functions ==========================
-
 def create_charts(df, version, date_selected):
     charts = {}
     df_100 = df[df['LEVEL'] <= 100].copy()
@@ -102,14 +96,13 @@ def create_charts(df, version, date_selected):
 def format_chart(ax, title, version, date_selected):
     ax.set_xlim(1, 100)
     ax.set_xticks(np.arange(1, 101, 1))
-    ax.set_xticklabels([f"\$\bf{{{x}}}\$" if x % 5 == 0 else str(x) for x in range(1, 101)], fontsize=6)
+    ax.set_xticklabels([f"{x}" if x % 5 == 0 else "" for x in range(1, 101)], fontsize=6)
     ax.set_title(f"{title} | Version {version} | {date_selected.strftime('%d-%m-%Y')}",
                  fontsize=12, fontweight='bold')
     ax.grid(True, linestyle='--', linewidth=0.5)
     ax.tick_params(axis='x', labelsize=6)
 
 # ========================== Step 5: Excel Generation ==========================
-
 def generate_excel_report(processed_data, version, date_selected):
     output = BytesIO()
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
@@ -124,132 +117,68 @@ def generate_excel_report(processed_data, version, date_selected):
             'border': 1
         })
 
-        cell_format = workbook.add_format({
-            'align': 'center',
-            'valign': 'vcenter'
-        })
+        cell_format = workbook.add_format({'align': 'center'})
+        highlight_format = workbook.add_format({'bg_color': '#FFEB9C', 'font_color': '#9C0006'})
 
-        highlight_format = workbook.add_format({
-            'font_color': 'red',
-            'bg_color': 'yellow',
-            'align': 'center',
-            'valign': 'vcenter'
-        })
-
-        # Create sheets for each game
-        main_tab_data = []
+        # Create sheets
+        main_data = []
         for idx, (game_name, df) in enumerate(processed_data.items(), start=1):
             sheet_name = game_name[:31]
-            df_export = df.copy()
-            df_export.columns = [
-                "Level", "Start Users", "Complete Users", "Game Play Drop",
-                "Popup Drop", "Total Level Drop", "Retention %",
-                "PLAY_TIME_AVG", "HINT_USED_SUM", "SKIPPED_SUM", "ATTEMPT_SUM"
-            ]
-            df_export.to_excel(writer, sheet_name=sheet_name, index=False)
+            df.to_excel(writer, sheet_name=sheet_name, index=False)
             worksheet = writer.sheets[sheet_name]
 
-            # Apply formats
-            for col_num, value in enumerate(df_export.columns):
-                worksheet.write(0, col_num, value, header_format)
-
-            for row_num in range(1, len(df_export)+1):
-                for col_num in range(len(df_export.columns)):
-                    value = df_export.iloc[row_num-1, col_num]
-                    col_name = df_export.columns[col_num]
-
-                    if pd.isna(value): value = ""
-
-                    if col_name in ['Game Play Drop', 'Popup Drop', 'Total Level Drop']:
-                        if isinstance(value, (int, float)) and value >= 3:
-                            worksheet.write(row_num, col_num, value, highlight_format)
-                        else:
-                            worksheet.write(row_num, col_num, value, cell_format)
-                    else:
-                        worksheet.write(row_num, col_num, value, cell_format)
-
-            # Set column widths
-            for i, col in enumerate(df_export.columns):
-                column_len = max(df_export[col].astype(str).map(len).max(), len(col)) + 2
-                worksheet.set_column(i, i, column_len)
+            # Add formats
+            worksheet.conditional_format(1, 3, 100, 5, {
+                'type': 'cell',
+                'criteria': '>=',
+                'value': 3,
+                'format': highlight_format
+            })
 
             # Add charts
             charts = create_charts(df, version, date_selected)
-            chart_positions = {'retention': 'M2', 'total_drop': 'M35', 'combo_drop': 'M68'}
-            for chart_name, chart in charts.items():
+            for chart_name, fig in charts.items():
                 imgdata = BytesIO()
-                chart.savefig(imgdata, format='png')
-                imgdata.seek(0)
-                worksheet.insert_image(chart_positions[chart_name], f"{chart_name}.png", {'image_data': imgdata})
-                plt.close(chart)
+                fig.savefig(imgdata, format='png')
+                worksheet.insert_image(f'M{idx*30}', imgdata)
+                plt.close(fig)
 
-            # Collect data for MAIN_TAB
-            main_tab_data.append([
+            main_data.append([
                 idx, game_name,
-                df['GAME_PLAY_DROP'].count(),
-                df['POPUP_DROP'].count(),
-                df['TOTAL_LEVEL_DROP'].count(),
-                df['LEVEL'].min(), df['START_USERS'].max(),
-                df['LEVEL'].max(), df['COMPLETE_USERS'].iloc[-1],
-                f'=HYPERLINK("#{sheet_name}!A1","Click to view {game_name}")'
+                f'=HYPERLINK("#{sheet_name}!A1", "View")'
             ])
 
-        # Create MAIN_TAB
-        main_tab_df = pd.DataFrame(main_tab_data, columns=[
-            "Index", "Sheet Name", "Game Play Drop Count", "Popup Drop Count",
-            "Total Level Drop Count", "LEVEL_Start", "USERS_starts", "LEVEL_End", "USERS_END", "Link to Sheet"
-        ])
-        main_tab_df.to_excel(writer, sheet_name='MAIN_TAB', index=False)
-        worksheet = writer.sheets['MAIN_TAB']
-
-        # Format MAIN_TAB
-        for col_num, value in enumerate(main_tab_df.columns):
-            worksheet.write(0, col_num, value, header_format)
-
-        for row_num in range(1, len(main_tab_df)+1):
-            for col_num in range(len(main_tab_df.columns)):
-                value = main_tab_df.iloc[row_num-1, col_num]
-                worksheet.write(row_num, col_num, value, cell_format)
-
-        # Set column widths for MAIN_TAB
-        for i, col in enumerate(main_tab_df.columns):
-            column_len = max(main_tab_df[col].astype(str).map(len).max(), len(col)) + 2
-            worksheet.set_column(i, i, column_len)
+        # Create main sheet
+        main_df = pd.DataFrame(main_data, columns=["Index", "Game Name", "Link"])
+        main_df.to_excel(writer, sheet_name='MAIN', index=False)
 
     output.seek(0)
     return output
 
 # ========================== Step 6: Streamlit UI ==========================
-
 def main():
     st.sidebar.header("Upload Files")
-    start_files = st.sidebar.file_uploader("LEVEL_START Files", type=["csv", "xlsx"], accept_multiple_files=True)
-    complete_files = st.sidebar.file_uploader("LEVEL_COMPLETE Files", type=["csv", "xlsx"], accept_multiple_files=True)
+    start_files = st.sidebar.file_uploader("LEVEL_START Files", accept_multiple_files=True)
+    complete_files = st.sidebar.file_uploader("LEVEL_COMPLETE Files", accept_multiple_files=True)
 
     version = st.sidebar.text_input("Game Version", "1.0.0")
     date_selected = st.sidebar.date_input("Analysis Date", datetime.date.today())
 
     if start_files and complete_files:
-        with st.spinner("Processing files..."):
-            processed_data = process_game_data(start_files, complete_files)
+        processed_data = process_game_data(start_files, complete_files)
+        if processed_data:
+            excel_file = generate_excel_report(processed_data, version, date_selected)
 
-            if processed_data:
-                excel_output = generate_excel_report(processed_data, version, date_selected)
+            st.download_button(
+                label="📥 Download Report",
+                data=excel_file,
+                file_name=f"game_analysis_{datetime.datetime.now().strftime('%Y%m%d')}.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
 
-                st.download_button(
-                    label="📥 Download Full Report",
-                    data=excel_output.getvalue(),
-                    file_name=f"Game_Analytics_{version}_{date_selected.strftime('%Y%m%d')}.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                )
-
-                selected_game = st.selectbox("Select Game to Preview", list(processed_data.keys()))
-                st.dataframe(processed_data[selected_game])
-
-                charts = create_charts(processed_data[selected_game], version, date_selected)
-                st.pyplot(charts['retention'])
-                st.pyplot(charts['total_drop'])
-                st.pyplot(charts['combo_drop'])
+            selected_game = st.selectbox("Select Game", list(processed_data.keys()))
+            st.dataframe(processed_data[selected_game])
+            st.pyplot(create_charts(processed_data[selected_game], version, date_selected)['retention'])
 
 if __name__ == "__main__":
     main()
