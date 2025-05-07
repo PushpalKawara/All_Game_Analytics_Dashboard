@@ -118,14 +118,18 @@ def generate_excel_report(processed_data, version, date_selected):
 
     for idx, (game_name, df) in enumerate(processed_data.items(), start=1):
         sheet = wb.create_sheet(game_name)
+        # Header with hyperlink in A1
         sheet.append([
+            '=HYPERLINK("#MAIN_TAB!A1", "Back to Locate Sheet")',
             "Level", "Start Users", "Complete Users", "Game Play Drop",
             "Popup Drop", "Total Level Drop", "Retention %", "PLAY_TIME_AVG",
             "HINT_USED_SUM", "SKIPPED_SUM", "ATTEMPT_SUM"
         ])
 
+        # Data rows with hyperlink in column A
         for _, row in df.iterrows():
             sheet.append([
+                f'=HYPERLINK("#MAIN_TAB!A1", "{game_name}")',
                 row['LEVEL'], row['START_USERS'], row['COMPLETE_USERS'],
                 row['GAME_PLAY_DROP'], row['POPUP_DROP'], row['TOTAL_LEVEL_DROP'],
                 row['RETENTION_%'], row.get('PLAY_TIME_AVG', 0),
@@ -156,25 +160,25 @@ def add_charts_to_sheet(sheet, charts):
 
 def format_workbook(wb):
     for sheet in wb:
+        # Format headers
         for cell in sheet[1]:
             cell.font = Font(bold=True, color="FFFFFF")
             cell.fill = PatternFill("solid", fgColor="4F81BD")
             cell.alignment = Alignment(horizontal='center')
 
+        # Auto-adjust columns
         for col in sheet.columns:
             max_length = max(len(str(cell.value)) for cell in col)
-            sheet.column_dimensions[get_column_letter(col[0].column)].width = max_length + 2
+            adjusted_width = (max_length + 2) if max_length > 10 else 12
+            sheet.column_dimensions[get_column_letter(col[0].column)].width = adjusted_width
 
+        # Highlight cells >=3 or negative in D, E, F
         red_fill = PatternFill(start_color="FFC7CE", end_color="FFC7CE")
         for row in sheet.iter_rows(min_row=2):
             for cell in row:
                 if cell.column_letter in ['D', 'E', 'F'] and isinstance(cell.value, (int, float)):
-                    if cell.value >= 3:
+                    if cell.value >= 3 or cell.value < 0:
                         cell.fill = red_fill
-
-
-
-
 
 # ========================== Step 6: Streamlit UI ========================== #
 def main():
