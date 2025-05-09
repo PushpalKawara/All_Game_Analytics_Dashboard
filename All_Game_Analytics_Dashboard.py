@@ -1,218 +1,106 @@
-# ========================== Step 1: Required Imports ========================== #
 import streamlit as st
 import pandas as pd
 import numpy as np
-import os
-import re
-import datetime
-import matplotlib.pyplot as plt
-from io import BytesIO
-from pathlib import Path
-from openpyxl import Workbook
-from openpyxl.styles import Font, Alignment, PatternFill
-from openpyxl.utils import get_column_letter
-import tempfile
+import io
+import xlsxwriter
 
-# ========================== Step 2: Streamlit Config ========================== #
-st.set_page_config(page_title="GAME PROGRESSION", layout="wide")
-st.title("📊 GAME PROGRESSION Dashboard")
+st.set_page_config(page_title="Game Progression Report Generator")
+st.title("🎮 BrainGames Progression Report Generator")
+st.write("Upload your **level_started** and **level_completed** files to generate a full game analytics report with sheet links, drop rates, and retention.")
 
-# ========================== Step 3: Core Functions ========================== #
-def process_game_data(start_files, complete_files):
-    processed_games = {}
+# Upload
+start_file = st.file_uploader("Upload level_started.csv", type="csv")
+complete_file = st.file_uploader("Upload level_completed.csv", type="csv")
 
-    start_map = {os.path.splitext(f.name)[0].upper(): f for f in start_files}
-    complete_map = {os.path.splitext(f.name)[0].upper(): f for f in complete_files}
+if start_file and complete_file:
+    df_start = pd.read_csv(start_file)
+    df_complete = pd.read_csv(complete_file)
 
-    common_games = set(start_map.keys()) & set(complete_map.keys())
+    # Expected columns
+    expected_cols = ['GAME_ID', 'GAME_MODE', 'Level', 'user_id', 'timestamp']
+    if not all(col in df_start.columns for col in expected_cols) or not all(col in df_complete.columns for col in expected_cols):
+        st.error("❌ One of the files is missing required columns.")
+        st.stop()
 
-    for game_name in common_games:
-        start_df = load_and_clean_file(start_map[game_name], is_start_file=True)
-        complete_df = load_and_clean_file(complete_map[game_name], is_start_file=False)
+    # Process input
+    start_grp = df_start.groupby(['GAME_ID', 'GAME_MODE', 'Level'])['user_id'].nunique().reset_index()
+    start_grp.rename(columns={'user_id': 'Start Users'}, inplace=True)
 
-        if start_df is not None and complete_df is not None:
-            merged_df = merge_and_calculate(start_df, complete_df)
-            processed_games[game_name] = merged_df
+    complete_grp = df_complete.groupby(['GAME_ID', 'GAME_MODE', 'Level'])['user_id'].nunique().reset_index()
+    complete_grp.rename(columns={'user_id': 'Complete Users'}, inplace=True)
 
-    return processed_games
+    merged = pd.merge(start_grp, complete_grp, on=['GAME_ID', 'GAME_MODE', 'Level'], how='left')
+    merged['Complete Users'] = merged['Complete Users'].fillna(0).astype(int)
+    merged.sort_values(by=['GAME_ID', 'GAME_MODE', 'Level'], inplace=True)
 
-def load_and_clean_file(file_obj, is_start_file=True):
-    try:
-        df = pd.read_csv(file_obj) if file_obj.name.endswith('.csv') else pd.read_excel(file_obj)
-        df.columns = df.columns.str.strip().str.upper()
+    # Drop Rate
+    merged['Total Level Drop'] = (merged['Start Users'] - merged['Complete Users']) / merged['Start Users']
+    merged['Total Level Drop'] = merged['Total Level Drop'].round(4)
 
-        level_col = next((col for col in df.columns if 'LEVEL' in col), None)
-        if level_col:
-            df['LEVEL'] = df[level_col].astype(str).str.extract('(\d+)').astype(int)
+    # Retention %
+    merged['Retention %'] = 0.0
+    for (game, mode), group in merged.groupby(['GAME_ID', 'GAME_MODE']):
+        idx = group.index
+        start_values = group['Start Users'].values
+        retention = [start_values[i + 1] / start_values[i] if i + 1 < len(start_values) and start_values[i] > 0 else 0 for i in range(len(start_values))]
+        retention.append(0)
+        merged.loc[idx, 'Retention %'] = retention
 
-        user_col = next((col for col in df.columns if 'USER' in col), None)
-        if user_col:
-            df = df.rename(columns={user_col: 'START_USERS' if is_start_file else 'COMPLETE_USERS'})
+    merged['Retention %'] = merged['Retention %'].round(4)
 
-        if is_start_file:
-            df = df[['LEVEL', 'START_USERS']].drop_duplicates().sort_values('LEVEL')
-        else:
-            keep_cols = ['LEVEL', 'COMPLETE_USERS', 'PLAY_TIME_AVG', 'HINT_USED_SUM', 'SKIPPED_SUM', 'ATTEMPT_SUM']
-            df = df[[col for col in keep_cols if col in df.columns]]
+    # Prepare Excel
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+        workbook = writer.book
 
-        return df.dropna().sort_values('LEVEL')
-    except Exception as e:
-        st.error(f"Error processing {file_obj.name}: {str(e)}")
-        return None
+        # Create main sheet with hyperlinks
+        summary_sheet = 'LIS'
+        summary_df = merged.groupby(['GAME_ID', 'GAME_MODE']).size().reset_index().drop(columns=0)
+        summary_df['Link'] = ""
 
-def merge_and_calculate(start_df, complete_df):
-    merged = pd.merge(start_df, complete_df, on='LEVEL', how='outer').sort_values('LEVEL')
+        for idx, row in summary_df.iterrows():
+            sheet_name = f"{row['GAME_ID']}_{row['GAME_MODE']}".replace(" ", "_")[:31]
+            summary_df.at[idx, 'Link'] = f"=HYPERLINK(\"#{sheet_name}!A1\", \"View\")"
 
-    merged['GAME_PLAY_DROP'] = ((merged['START_USERS'] - merged['COMPLETE_USERS']) / merged['START_USERS']) * 100
-    merged['POPUP_DROP'] = ((merged['COMPLETE_USERS'] - merged['START_USERS'].shift(-1)) / merged['COMPLETE_USERS']) * 100
-    merged['TOTAL_LEVEL_DROP'] = ((merged['START_USERS'] - merged['START_USERS'].shift(-1)) / merged['START_USERS']) * 100
-    merged['RETENTION_%'] = (merged['START_USERS'] / merged['START_USERS'].max()) * 100
+        summary_df.to_excel(writer, sheet_name=summary_sheet, index=False)
+        summary_ws = writer.sheets[summary_sheet]
 
-    return merged.round(2)
+        # Format main sheet
+        header_fmt = workbook.add_format({'bold': True, 'bg_color': '#D7E4BC'})
+        for col_num, value in enumerate(summary_df.columns):
+            summary_ws.write(0, col_num, value, header_fmt)
+        summary_ws.freeze_panes(1, 0)
 
-# ========================== Step 4: Charting Functions ========================== #
-def create_charts(df, version, date_selected):
-    charts = {}
-    df_100 = df[df['LEVEL'] <= 100].copy()
+        # Create each sheet
+        for (game, mode), group in merged.groupby(['GAME_ID', 'GAME_MODE']):
+            sheet_name = f"{game}_{mode}".replace(" ", "_")[:31]
+            group.to_excel(writer, sheet_name=sheet_name, index=False)
+            ws = writer.sheets[sheet_name]
 
-    # Retention Chart
-    fig1, ax1 = plt.subplots(figsize=(15, 7))
-    ax1.plot(df_100['LEVEL'], df_100['RETENTION_%'], color='#F57C00', linewidth=2)
-    format_chart(ax1, "Retention Chart", version, date_selected)
-    charts['retention'] = fig1
+            # Format headers
+            for col_num, value in enumerate(group.columns):
+                ws.write(0, col_num, value, header_fmt)
 
-    # Total Drop Chart
-    fig2, ax2 = plt.subplots(figsize=(15, 6))
-    ax2.bar(df_100['LEVEL'], df_100['TOTAL_LEVEL_DROP'], color='#EF5350')
-    format_chart(ax2, "Total Level Drop Chart", version, date_selected)
-    charts['total_drop'] = fig2
+            # Freeze header
+            ws.freeze_panes(1, 0)
 
-    # Combo Drop Chart
-    fig3, ax3 = plt.subplots(figsize=(15, 6))
-    width = 0.4
-    ax3.bar(df_100['LEVEL'] + width/2, df_100['GAME_PLAY_DROP'], width, color='#66BB6A')
-    ax3.bar(df_100['LEVEL'] - width/2, df_100['POPUP_DROP'], width, color='#42A5F5')
-    format_chart(ax3, "Game Play & Popup Drop Chart", version, date_selected)
-    charts['combo_drop'] = fig3
+            # Apply conditional formatting for Drop > 5%
+            drop_col_idx = group.columns.get_loc('Total Level Drop')
+            ws.conditional_format(1, drop_col_idx, len(group), drop_col_idx, {
+                'type': 'cell',
+                'criteria': '>',
+                'value': 0.05,
+                'format': workbook.add_format({'bg_color': 'yellow', 'font_color': 'red'})
+            })
 
-    return charts
+            # Add "Back to Main Sheet" link
+            ws.write('K1', f'=HYPERLINK("#{summary_sheet}!A1", "← Back to Summary")',
+                     workbook.add_format({'bold': True, 'font_color': 'blue'}))
 
-def format_chart(ax, title, version, date_selected):
-    ax.set_xlim(1, 100)
-    ax.set_xticks(np.arange(1, 101, 1))
-    ax.set_xticklabels([f"$\\bf{{{x}}}$" if x % 5 == 0 else str(x) for x in range(1, 101)], fontsize=6)
-    ax.set_title(f"{title} | Version {version} | {date_selected.strftime('%d-%m-%Y')}", fontsize=12, fontweight='bold')
-    ax.grid(True, linestyle='--', linewidth=0.5)
-    ax.tick_params(axis='x', labelsize=6)
-
-# ========================== Step 5: Excel Generation ========================== #
-def generate_excel_report(processed_data, version, date_selected):
-    wb = Workbook()
-    wb.remove(wb.active)
-
-    main_sheet = wb.create_sheet("MAIN_TAB")
-    main_sheet.append([
-        "Index", "Sheet Name", "Game Play Drop Count", "Popup Drop Count",
-        "Total Level Drop Count", "LEVEL_Start", "USERS_starts", "LEVEL_End", "USERS_END", "Link to Sheet"
-    ])
-
-    for idx, (game_name, df) in enumerate(processed_data.items(), start=1):
-        sheet = wb.create_sheet(game_name)
-        # Header with hyperlink in A1
-        sheet.append([
-            '=HYPERLINK("#MAIN_TAB!A1", "Back to Locate Sheet")',
-            "Level", "Start Users", "Complete Users", "Game Play Drop",
-            "Popup Drop", "Total Level Drop", "Retention %", "PLAY_TIME_AVG",
-            "HINT_USED_SUM", "SKIPPED_SUM", "ATTEMPT_SUM"
-        ])
-
-        # Data rows with hyperlink in column A
-        for _, row in df.iterrows():
-            sheet.append([
-                f'=HYPERLINK("#MAIN_TAB!A1", "{game_name}")',
-                row['LEVEL'], row['START_USERS'], row['COMPLETE_USERS'],
-                row['GAME_PLAY_DROP'], row['POPUP_DROP'], row['TOTAL_LEVEL_DROP'],
-                row['RETENTION_%'], row.get('PLAY_TIME_AVG', 0),
-                row.get('HINT_USED_SUM', 0), row.get('SKIPPED_SUM', 0),
-                row.get('ATTEMPT_SUM', 0)
-            ])
-
-        charts = create_charts(df, version, date_selected)
-        add_charts_to_sheet(sheet, charts)
-
-        main_sheet.append([
-            idx, game_name,
-            df['GAME_PLAY_DROP'].count(),
-            df['POPUP_DROP'].count(),
-            df['TOTAL_LEVEL_DROP'].count(),
-            df['LEVEL'].min(), df['START_USERS'].max(),
-            df['LEVEL'].max(), df['COMPLETE_USERS'].iloc[-1],
-            f'=HYPERLINK("#{game_name}!A1","Click to view {game_name}")'
-        ])
-
-    format_workbook(wb)
-    return wb
-
-def add_charts_to_sheet(sheet, charts):
-    sheet['M1'] = "Retention Chart →"
-    sheet['M35'] = "Total Drop Chart →"
-    sheet['M65'] = "Combo Drop Chart →"
-
-def format_workbook(wb):
-    for sheet in wb:
-        # Format headers
-        for cell in sheet[1]:
-            cell.font = Font(bold=True, color="FFFFFF")
-            cell.fill = PatternFill("solid", fgColor="4F81BD")
-            cell.alignment = Alignment(horizontal='center')
-
-        # Auto-adjust columns
-        for col in sheet.columns:
-            max_length = max(len(str(cell.value)) for cell in col)
-            adjusted_width = (max_length + 2) if max_length > 10 else 12
-            sheet.column_dimensions[get_column_letter(col[0].column)].width = adjusted_width
-
-        # Highlight cells >=3 or negative in D, E, F
-        red_fill = PatternFill(start_color="FFC7CE", end_color="FFC7CE")
-        for row in sheet.iter_rows(min_row=2):
-            for cell in row:
-                if cell.column_letter in ['D', 'E', 'F'] and isinstance(cell.value, (int, float)):
-                    if cell.value >= 3 or cell.value < 0:
-                        cell.fill = red_fill
-
-# ========================== Step 6: Streamlit UI ========================== #
-def main():
-    st.sidebar.header("Upload Files")
-    start_files = st.sidebar.file_uploader("LEVEL_START Files", type=["csv", "xlsx"], accept_multiple_files=True)
-    complete_files = st.sidebar.file_uploader("LEVEL_COMPLETE Files", type=["csv", "xlsx"], accept_multiple_files=True)
-
-    version = st.sidebar.text_input("Game Version", "1.0.0")
-    date_selected = st.sidebar.date_input("Analysis Date", datetime.date.today())
-
-    if start_files and complete_files:
-        with st.spinner("Processing files..."):
-            processed_data = process_game_data(start_files, complete_files)
-
-            if processed_data:
-                wb = generate_excel_report(processed_data, version, date_selected)
-
-                with tempfile.NamedTemporaryFile(delete=False) as tmp:
-                    wb.save(tmp.name)
-                    tmp.seek(0)
-                    excel_data = tmp.read()
-
-                st.download_button(
-                    label="📥 Download Full Report",
-                    data=excel_data,
-                    file_name=f"Game_Analytics_{version}_{date_selected}.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                )
-
-                selected_game = st.selectbox("Select Game to Preview", list(processed_data.keys()))
-                st.dataframe(processed_data[selected_game])
-
-                st.pyplot(create_charts(processed_data[selected_game], version, date_selected)['retention'])
-
-# ========================== Entry Point ========================== #
-if __name__ == "__main__":
-    main()
+    st.success("✅ Report ready!")
+    st.download_button(
+        label="📥 Download Game Progression Report",
+        data=output.getvalue(),
+        file_name="BrainGames_allgameProgression.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
