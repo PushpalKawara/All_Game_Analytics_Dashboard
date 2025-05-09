@@ -17,21 +17,21 @@ if start_file and complete_file:
     df_complete = pd.read_csv(complete_file)
 
     # Expected columns
-    expected_cols = ['GAME_ID', 'GAME_MODE', 'Level', 'user']
+    expected_cols = ['GAME_ID', 'DIFFICULTY', 'Level', 'user']
     if not all(col in df_start.columns for col in expected_cols) or not all(col in df_complete.columns for col in expected_cols):
         st.error("❌ One of the files is missing required columns.")
         st.stop()
 
     # Process input
-    start_grp = df_start.groupby(['GAME_ID', 'GAME_MODE', 'Level'])['user'].nunique().reset_index()
+    start_grp = df_start.groupby(['GAME_ID', 'DIFFICULTY', 'Level'])['user'].nunique().reset_index()
     start_grp.rename(columns={'user': 'Start Users'}, inplace=True)
 
-    complete_grp = df_complete.groupby(['GAME_ID', 'GAME_MODE', 'Level'])['user'].nunique().reset_index()
+    complete_grp = df_complete.groupby(['GAME_ID', 'DIFFICULTY', 'Level'])['user'].nunique().reset_index()
     complete_grp.rename(columns={'user': 'Complete Users'}, inplace=True)
 
-    merged = pd.merge(start_grp, complete_grp, on=['GAME_ID', 'GAME_MODE', 'Level'], how='left')
+    merged = pd.merge(start_grp, complete_grp, on=['GAME_ID', 'DIFFICULTY', 'Level'], how='left')
     merged['Complete Users'] = merged['Complete Users'].fillna(0).astype(int)
-    merged.sort_values(by=['GAME_ID', 'GAME_MODE', 'Level'], inplace=True)
+    merged.sort_values(by=['GAME_ID', 'DIFFICULTY', 'Level'], inplace=True)
 
     # Drop Rate
     merged['Total Level Drop'] = (merged['Start Users'] - merged['Complete Users']) / merged['Start Users']
@@ -39,7 +39,7 @@ if start_file and complete_file:
 
     # Retention %
     merged['Retention %'] = 0.0
-    for (game, mode), group in merged.groupby(['GAME_ID', 'GAME_MODE']):
+    for (game, mode), group in merged.groupby(['GAME_ID', 'DIFFICULTY']):
         idx = group.index
         start_values = group['Start Users'].values
         retention = [start_values[i + 1] / start_values[i] if i + 1 < len(start_values) and start_values[i] > 0 else 0 for i in range(len(start_values))]
@@ -55,11 +55,11 @@ if start_file and complete_file:
 
         # Create main sheet with hyperlinks
         summary_sheet = 'LIS'
-        summary_df = merged.groupby(['GAME_ID', 'GAME_MODE']).size().reset_index().drop(columns=0)
+        summary_df = merged.groupby(['GAME_ID', 'DIFFICULTY']).size().reset_index().drop(columns=0)
         summary_df['Link'] = ""
 
         for idx, row in summary_df.iterrows():
-            sheet_name = f"{row['GAME_ID']}_{row['GAME_MODE']}".replace(" ", "_")[:31]
+            sheet_name = f"{row['GAME_ID']}_{row['DIFFICULTY']}".replace(" ", "_")[:31]
             summary_df.at[idx, 'Link'] = f"=HYPERLINK(\"#{sheet_name}!A1\", \"View\")"
 
         summary_df.to_excel(writer, sheet_name=summary_sheet, index=False)
@@ -72,7 +72,7 @@ if start_file and complete_file:
         summary_ws.freeze_panes(1, 0)
 
         # Create each sheet
-        for (game, mode), group in merged.groupby(['GAME_ID', 'GAME_MODE']):
+        for (game, mode), group in merged.groupby(['GAME_ID', 'DIFFICULTY']):
             sheet_name = f"{game}_{mode}".replace(" ", "_")[:31]
             group.to_excel(writer, sheet_name=sheet_name, index=False)
             ws = writer.sheets[sheet_name]
