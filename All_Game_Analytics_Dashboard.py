@@ -17,17 +17,17 @@ if start_file and complete_file:
     df_complete = pd.read_csv(complete_file)
 
     # Expected columns
-    expected_cols = ['GAME_ID', 'GAME_MODE', 'Level', 'user_id', 'timestamp']
+    expected_cols = ['GAME_ID', 'GAME_MODE', 'Level', 'user']
     if not all(col in df_start.columns for col in expected_cols) or not all(col in df_complete.columns for col in expected_cols):
         st.error("❌ One of the files is missing required columns.")
         st.stop()
 
     # Process input
-    start_grp = df_start.groupby(['GAME_ID', 'GAME_MODE', 'Level'])['user_id'].nunique().reset_index()
-    start_grp.rename(columns={'user_id': 'Start Users'}, inplace=True)
+    start_grp = df_start.groupby(['GAME_ID', 'GAME_MODE', 'Level'])['user'].nunique().reset_index()
+    start_grp.rename(columns={'user': 'Start Users'}, inplace=True)
 
-    complete_grp = df_complete.groupby(['GAME_ID', 'GAME_MODE', 'Level'])['user_id'].nunique().reset_index()
-    complete_grp.rename(columns={'user_id': 'Complete Users'}, inplace=True)
+    complete_grp = df_complete.groupby(['GAME_ID', 'GAME_MODE', 'Level'])['user'].nunique().reset_index()
+    complete_grp.rename(columns={'user': 'Complete Users'}, inplace=True)
 
     merged = pd.merge(start_grp, complete_grp, on=['GAME_ID', 'GAME_MODE', 'Level'], how='left')
     merged['Complete Users'] = merged['Complete Users'].fillna(0).astype(int)
