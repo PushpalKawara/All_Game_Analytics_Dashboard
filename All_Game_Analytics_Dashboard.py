@@ -165,7 +165,7 @@ def add_charts_to_sheet(sheet, charts):
         sheet.add_image(img)
 
 def format_workbook(wb):
-    drop_columns = {"D", "E", "F"}
+    drop_columns = {"E", "F", "G"}
     for sheet in wb:
         sheet.freeze_panes = sheet["B2"] if sheet.title != "MAIN_TAB" else sheet["A2"]
 
