@@ -1,5 +1,3 @@
-# FILE: app_game_progression_excel.py
-
 # ========================== Step 1: Required Imports ========================== #
 import streamlit as st
 import pandas as pd
@@ -67,6 +65,7 @@ def load_and_clean_file(file_obj, is_start_file=True):
 
 def merge_and_calculate(start_df, complete_df):
     merged = pd.merge(start_df, complete_df, on='LEVEL', how='outer').sort_values('LEVEL')
+
     merged['START_USERS'].fillna(0, inplace=True)
     merged['COMPLETE_USERS'].fillna(0, inplace=True)
 
@@ -109,20 +108,19 @@ def format_chart(ax, title, version, date_selected):
     ax.grid(True, linestyle='--', linewidth=0.5)
     ax.tick_params(axis='x', labelsize=6)
 
-# ========================== Step 5: Excel Report With Formatting ========================== #
+# ========================== Step 5: Excel Generation ========================== #
 def generate_excel_report(processed_data, version, date_selected):
     wb = Workbook()
     wb.remove(wb.active)
 
     main_sheet = wb.create_sheet("MAIN_TAB")
     main_sheet.append([
-        "Index", "Sheet Name", "Game Play Drop Count (≥3%)", "Popup Drop Count (≥3%)",
-        "Total Level Drop Count (≥3%)", "LEVEL_Start", "USERS_starts", "LEVEL_End", "USERS_END", "Link to Sheet"
+        "Index", "Sheet Name", "Game Play Drop Count", "Popup Drop Count",
+        "Total Level Drop Count", "LEVEL_Start", "USERS_starts", "LEVEL_End", "USERS_END", "Link to Sheet"
     ])
 
     for idx, (game_name, df) in enumerate(processed_data.items(), start=1):
-        sheet = wb.create_sheet(game_name[:30])
-        sheet.freeze_panes = sheet["B2"]
+        sheet = wb.create_sheet(game_name[:30])  # Excel sheet name max length = 31
         sheet.append([
             '=HYPERLINK("#MAIN_TAB!A1", "Back to Locate Sheet")',
             "Level", "Start Users", "Complete Users", "Game Play Drop",
@@ -143,12 +141,11 @@ def generate_excel_report(processed_data, version, date_selected):
         charts = create_charts(df, version, date_selected)
         add_charts_to_sheet(sheet, charts)
 
-        drop_gp = df[df['GAME_PLAY_DROP'] >= 3].shape[0]
-        drop_pp = df[df['POPUP_DROP'] >= 3].shape[0]
-        drop_tot = df[df['TOTAL_LEVEL_DROP'] >= 3].shape[0]
-
         main_sheet.append([
-            idx, game_name, drop_gp, drop_pp, drop_tot,
+            idx, game_name,
+            df['GAME_PLAY_DROP'].count(),
+            df['POPUP_DROP'].count(),
+            df['TOTAL_LEVEL_DROP'].count(),
             df['LEVEL'].min(), df['START_USERS'].max(),
             df['LEVEL'].max(), df['COMPLETE_USERS'].iloc[-1],
             f'=HYPERLINK("#{game_name[:30]}!A1","Click to view {game_name}")'
