@@ -190,8 +190,6 @@ def format_workbook(wb):
                     elif cell.value >= 3:
                         cell.fill = PatternFill("solid", fgColor="F1948A")
                         cell.font = Font(color="FFFFFF")
-                if cell.column_letter in drop_columns:
-                    cell.number_format = '0.00%'
 
 # ========================== Step 6: Streamlit UI ========================== #
 def main():
