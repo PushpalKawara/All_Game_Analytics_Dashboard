@@ -118,6 +118,8 @@ def create_charts(df, version, date):
 
     return charts
 
+# ... (remaining functions for formatting and Excel generation continue)
+
 def format_retention(ax, version, date):
     ax.set(xlim=(1,100), ylim=(0,110),
           xticks=np.arange(1,101), yticks=np.arange(0,110,10))
@@ -263,59 +265,40 @@ def format_excel(wb):
             sheet.column_dimensions[get_column_letter(col[0].column)].width = max_len * 1.3 + 2
 
 # ========================== STREAMLIT UI ========================== #
-def main():
-    st.sidebar.header("⚙️ DATA UPLOAD")
-    start_files = st.sidebar.file_uploader("LEVEL_START",
-                      type=["csv","xlsx"], accept_multiple_files=True)
-    complete_files = st.sidebar.file_uploader("LEVEL_COMPLETE",
-                      type=["csv","xlsx"], accept_multiple_files=True)
+st.subheader("1️⃣ Upload Your Game Data")
 
-    version = st.sidebar.text_input("VERSION", "1.0.0")
-    date = st.sidebar.date_input("DATE", datetime.date.today())
+start_files = st.file_uploader("Upload START data files (CSV or Excel)", type=['csv', 'xlsx', 'xls'], accept_multiple_files=True)
+complete_files = st.file_uploader("Upload COMPLETE data files (CSV or Excel)", type=['csv', 'xlsx', 'xls'], accept_multiple_files=True)
 
-    if start_files and complete_files:
-        with st.spinner("🔍 ANALYZING..."):
-            processed = process_game_data(start_files, complete_files)
+version = st.text_input("Enter Game Version (e.g., 1.0.3):", "1.0.0")
+date = st.date_input("Select Date for Report:", datetime.date.today())
 
-            if processed:
-                # Excel Report
-                with tempfile.NamedTemporaryFile() as tmp:
-                    generate_excel_report(processed, version, date).save(tmp.name)
-                    st.download_button(
-                        "📥 DOWNLOAD REPORT",
-                        data=open(tmp.name, "rb").read(),
-                        file_name=f"Game_Analytics_{version}_{date}.xlsx",
-                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                    )
+if st.button("📊 Process Game Analytics"):
+    if not start_files or not complete_files:
+        st.warning("Please upload both START and COMPLETE files to continue.")
+    else:
+        with st.spinner("Processing... Please wait ⏳"):
+            try:
+                processed_data = process_game_data(start_files, complete_files)
+                if not processed_data:
+                    st.warning("No matching game files were found or processed.")
+                else:
+                    st.success("Data processed successfully!")
 
-                # Preview
-                game = st.selectbox("SELECT GAME", list(processed.keys()))
-                df = processed[game]
+                    # Display dataframes
+                    for game, df in processed_data.items():
+                        st.markdown(f"### 📂 Game: `{game}`")
+                        st.dataframe(df)
 
-                # Styled DataFrame
-                st.dataframe(df.style.format({
-                    'GAME_PLAY_DROP': '{:.2f}%',
-                    'POPUP_DROP': '{:.2f}%',
-                    'TOTAL_LEVEL_DROP': '{:.2f}%',
-                    'RETENTION_%': '{:.2f}%'
-                }).applymap(highlight_drops))
-
-                # Charts
-                charts = create_charts(df, version, date)
-                st.pyplot(charts['retention'])
-                st.pyplot(charts['total_drop'])
-                st.pyplot(charts['combo_drop'])
-
-def highlight_drops(val):
-    try:
-        num = float(val)
-        return [
-            "background-color: #8B0000; color: white" if num >=12 else
-            "background-color: #CD5C5C; color: white" if num >=7 else
-            "background-color: #FFA07A" if num >=3 else ""
-        ][0]
-    except:
-        return ""
-
-if __name__ == "__main__":
-    main()
+                    # Excel Download
+                    wb = generate_excel_report(processed_data, version, date)
+                    with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmp:
+                        wb.save(tmp.name)
+                        st.download_button(
+                            label="📥 Download Excel Report",
+                            data=open(tmp.name, "rb").read(),
+                            file_name=f"GameAnalyticsReport_v{version}.xlsx",
+                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                        )
+            except Exception as e:
+                st.error(f"Unexpected error occurred: {str(e)}")
