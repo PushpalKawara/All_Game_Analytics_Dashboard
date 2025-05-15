@@ -1,3 +1,4 @@
+
 # ========================== Step 1: Required Imports ========================== #
 import streamlit as st
 import pandas as pd
@@ -9,7 +10,7 @@ import matplotlib.pyplot as plt
 from io import BytesIO
 from pathlib import Path
 from openpyxl import Workbook
-from openpyxl.styles import Font, Alignment, PatternFill
+from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
 from openpyxl.utils import get_column_letter
 from openpyxl.drawing.image import Image as OpenpyxlImage
 import tempfile
@@ -77,36 +78,6 @@ def merge_and_calculate(start_df, complete_df):
     return merged.round(2)
 
 # ========================== Step 4: Charting Functions ========================== #
-# Function to count highlighted cells in specified columns
-def count_highlighted_cells(sheet, drop_columns):
-    counts = {col: 0 for col in drop_columns}
-    for row in sheet.iter_rows(min_row=3):  # Skip header rows
-        for cell in row:
-            if cell.column_letter in drop_columns and isinstance(cell.value, (int, float)):
-                fill = cell.fill
-                if fill and fill.fill_type == 'solid':
-                    fgColor = fill.fgColor.rgb
-                    if fgColor in ["FF7B241C", "FFC0392B", "FFF1948A"]:
-                        counts[cell.column_letter] += 1
-    return counts
-
-
-# Function to format the workbook
-def format_workbook(wb):
-    for sheet in wb.worksheets:
-        for col in sheet.columns:
-            max_length = 0
-            column_letter = get_column_letter(col[0].column)
-            for cell in col:
-                try:
-                    if cell.value:
-                        max_length = max(max_length, len(str(cell.value)))
-                    cell.alignment = Alignment(horizontal='center', vertical='center')
-                except:
-                    pass
-            sheet.column_dimensions[column_letter].width = max_length + 2
-
-
 def create_charts(df, version, date_selected):
     charts = {}
     df_100 = df[df['LEVEL'] <= 100].copy()
@@ -130,18 +101,6 @@ def create_charts(df, version, date_selected):
 
     return charts
 
-def add_charts_to_sheet(sheet, charts):
-    row_map = {'retention': 1, 'total_drop': 35, 'combo_drop': 65}
-    for name, fig in charts.items():
-        buf = BytesIO()
-        fig.savefig(buf, format='png', bbox_inches='tight')
-        buf.seek(0)
-        img = OpenpyxlImage(buf)
-        img.anchor = f"M{row_map[name]}"
-        sheet.add_image(img)
-
-
-
 def format_chart(ax, title, version, date_selected):
     ax.set_xlim(1, 100)
     ax.set_xticks(np.arange(1, 101, 1))
@@ -150,27 +109,35 @@ def format_chart(ax, title, version, date_selected):
     ax.grid(True, linestyle='--', linewidth=0.5)
     ax.tick_params(axis='x', labelsize=6)
 
-
 # ========================== Step 5: Excel Generation ========================== #
-# Function to generate the Excel report
 def generate_excel_report(processed_data, version, date_selected):
     wb = Workbook()
     wb.remove(wb.active)
+
     main_sheet = wb.create_sheet("MAIN_TAB")
     main_sheet.append([
         "Index", "Sheet Name", "Game Play Drop Count", "Popup Drop Count",
-        "Total Level Drop Count", "LEVEL_Start", "USERS_starts",
-        "LEVEL_End", "USERS_END", "Link to Sheet"
+        "Total Level Drop Count", "LEVEL_Start", "USERS_starts", "LEVEL_End", "USERS_END", "Link to Sheet"
     ])
 
     for idx, (game_name, df) in enumerate(processed_data.items(), start=1):
         sheet = wb.create_sheet(game_name[:30])
         sheet.append([
-            '=HYPERLINK("#MAIN_TAB!A1", "Back to Locate Sheet")',
+            '=HYPERLINK("#MAIN_TAB!A1", "Back to MAIN TAB")',
             "Level", "Start Users", "Complete Users", "Game Play Drop",
             "Popup Drop", "Total Level Drop", "Retention %", "PLAY_TIME_AVG",
             "HINT_USED_SUM", "SKIPPED_SUM", "ATTEMPT_SUM"
         ])
+
+        # Style hyperlink cell as button
+        hyperlink_cell = sheet['A1']
+        hyperlink_cell.font = Font(color="FFFFFF", bold=True)
+        hyperlink_cell.fill = PatternFill("solid", fgColor="0000FF")
+        hyperlink_cell.alignment = Alignment(horizontal='center', vertical='center')
+        hyperlink_cell.border = Border(
+            left=Side(style='thin'), right=Side(style='thin'),
+            top=Side(style='thin'), bottom=Side(style='thin')
+        )
 
         for _, row in df.iterrows():
             sheet.append([
@@ -182,68 +149,92 @@ def generate_excel_report(processed_data, version, date_selected):
                 row.get('ATTEMPT_SUM', 0)
             ])
 
-        # Apply coloring to drop columns (E, F, G)
-        drop_columns = ['E', 'F', 'G']
-        for row in sheet.iter_rows(min_row=3):  # Skip header
-            for cell in row:
-                if cell.column_letter in drop_columns and isinstance(cell.value, (int, float)):
-                    if cell.value >= 10:
-                        cell.fill = PatternFill("solid", fgColor="7B241C")
-                        cell.font = Font(color="FFFFFF")
-                    elif cell.value >= 5:
-                        cell.fill = PatternFill("solid", fgColor="C0392B")
-                        cell.font = Font(color="FFFFFF")
-                    elif cell.value >= 3:
-                        cell.fill = PatternFill("solid", fgColor="F1948A")
-                        cell.font = Font(color="FFFFFF")
-
         charts = create_charts(df, version, date_selected)
         add_charts_to_sheet(sheet, charts)
 
-        # Count only colored cells in drop columns
-        color_counts = count_highlighted_cells(sheet, drop_columns)
+        # Calculate highlighted counts
+        game_play_drop_count = (df['GAME_PLAY_DROP'] >= 3).sum()
+        popup_drop_count = (df['POPUP_DROP'] >= 3).sum()
+        total_level_drop_count = (df['TOTAL_LEVEL_DROP'] >= 3).sum()
 
-        main_sheet.append([
+        main_row = [
             idx, game_name,
-            color_counts['E'], color_counts['F'], color_counts['G'],
+            game_play_drop_count,
+            popup_drop_count,
+            total_level_drop_count,
             df['LEVEL'].min(), df['START_USERS'].max(),
             df['LEVEL'].max(), df['COMPLETE_USERS'].iloc[-1],
-            f'=HYPERLINK("#{game_name[:30]}!A1","🔍Analyze {game_name}")'
-        ])
+            f'=HYPERLINK("#{sheet.title}!A1", "{game_name}")'
+        ]
+        main_sheet.append(main_row)
 
-        # Make link cell blue and underlined
-        link_cell = main_sheet.cell(row=idx + 1, column=10)
-        link_cell.font = Font(color="0000FF", underline="single")
+        # Style hyperlink in MAIN_TAB
+        hyperlink_cell_main = main_sheet.cell(row=main_sheet.max_row, column=10)
+        hyperlink_cell_main.font = Font(color="0000FF", underline="single")
 
     format_workbook(wb)
     return wb
 
-# def format_workbook(wb):
-#     drop_columns = {"E", "F", "G"}
-#     for sheet in wb:
-#         sheet.freeze_panes = sheet["B2"] if sheet.title != "MAIN_TAB" else sheet["A2"]
+def add_charts_to_sheet(sheet, charts):
+    row_map = {'retention': 1, 'total_drop': 35, 'combo_drop': 65}
+    for name, fig in charts.items():
+        buf = BytesIO()
+        fig.savefig(buf, format='png', bbox_inches='tight')
+        buf.seek(0)
+        img = OpenpyxlImage(buf)
+        img.anchor = f"M{row_map[name]}"
+        sheet.add_image(img)
 
-#         for cell in sheet[1]:
-#             cell.font = Font(bold=True, color="FFFFFF")
-#             cell.fill = PatternFill("solid", fgColor="4F81BD")
-#             cell.alignment = Alignment(horizontal='center')
+def format_workbook(wb):
+    drop_columns = {"E", "F", "G"}
+    for sheet in wb:
+        sheet.freeze_panes = sheet["B2"] if sheet.title != "MAIN_TAB" else sheet["A2"]
 
-#         for col in sheet.columns:
-#             header = col[0].value or ""
-#             sheet.column_dimensions[get_column_letter(col[0].column)].width = max(len(str(header)) + 2, 12)
+        # Header styling
+        for cell in sheet[1]:
+            cell.font = Font(bold=True, color="FFFFFF")
+            cell.fill = PatternFill("solid", fgColor="4F81BD")
+            cell.alignment = Alignment(horizontal='center')
 
-#         for row in sheet.iter_rows(min_row=2):
-#             for cell in row:
-#                 if cell.column_letter in drop_columns and isinstance(cell.value, (int, float)):
-#                     if cell.value >= 10:
-#                         cell.fill = PatternFill("solid", fgColor="7B241C")
-#                         cell.font = Font(color="FFFFFF")
-#                     elif cell.value >= 5:
-#                         cell.fill = PatternFill("solid", fgColor="C0392B")
-#                         cell.font = Font(color="FFFFFF")
-#                     elif cell.value >= 3:
-#                         cell.fill = PatternFill("solid", fgColor="F1948A")
-#                         cell.font = Font(color="FFFFFF")
+        # Auto-fit columns
+        for col in sheet.columns:
+            max_length = 0
+            column_letter = get_column_letter(col[0].column)
+            for cell in col:
+                cell_value = str(cell.value) if cell.value is not None else ""
+                if cell_value.startswith('=HYPERLINK('):
+                    match = re.search(r',\s*"([^"]+)"\)', cell_value)
+                    if match:
+                        cell_length = len(match.group(1))
+                    else:
+                        cell_length = len(cell_value)
+                else:
+                    cell_length = len(cell_value)
+                if cell_length > max_length:
+                    max_length = cell_length
+            adjusted_width = (max_length + 2)
+            sheet.column_dimensions[column_letter].width = adjusted_width
+
+        # Center alignment for all cells
+        for row in sheet.iter_rows():
+            for cell in row:
+                cell.alignment = Alignment(horizontal='center', vertical='center')
+
+        # Highlight drop columns only in game sheets
+        if sheet.title != "MAIN_TAB":
+            for row in sheet.iter_rows(min_row=2):
+                for cell in row:
+                    if cell.column_letter in drop_columns and isinstance(cell.value, (int, float)):
+                        value = cell.value
+                        if value >= 10:
+                            cell.fill = PatternFill("solid", fgColor="7B241C")
+                            cell.font = Font(color="FFFFFF")
+                        elif value >= 5:
+                            cell.fill = PatternFill("solid", fgColor="C0392B")
+                            cell.font = Font(color="FFFFFF")
+                        elif value >= 3:
+                            cell.fill = PatternFill("solid", fgColor="F1948A")
+                            cell.font = Font(color="FFFFFF")
 
 # ========================== Step 6: Streamlit UI ========================== #
 def main():
