@@ -3,21 +3,24 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from io import BytesIO
-import xlsxwriter
+import tempfile
+import datetime
+from openpyxl import Workbook
+from openpyxl.drawing.image import Image as OpenpyxlImage
+from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+from openpyxl.utils import get_column_letter
 
+# Set up Streamlit page configuration
 st.set_page_config(page_title="Game Level Data Merger", layout="wide")
 st.title("📊 Streamlit Tool for Merging and Analyzing Game Level Data")
 
-# ---- File Upload ----
-st.sidebar.header("Upload CSV Files")
-level_start_file = st.sidebar.file_uploader("Upload LEVEL_START.csv", type="csv")
-level_complete_file = st.sidebar.file_uploader("Upload LEVEL_COMPLETE.csv", type="csv")
-
-# ---- Helper Functions ----
+# ========================== Helper Functions ========================== #
 def clean_level(level_val):
+    """Extract numeric values from level strings."""
     return ''.join(filter(str.isdigit, str(level_val)))
 
 def format_sheet(workbook, worksheet, df):
+    """Apply consistent formatting to Excel sheets."""
     header_format = workbook.add_format({'bold': True})
     worksheet.freeze_panes(1, 0)
     for i, col in enumerate(df.columns):
@@ -25,6 +28,7 @@ def format_sheet(workbook, worksheet, df):
         worksheet.set_column(i, i, 18)
 
 def apply_conditional_formatting(worksheet, df, workbook):
+    """Add color scales to highlight drop percentages."""
     drop_cols = ['Game Play Drop', 'Popup Drop', 'Total Level Drop']
     for col in drop_cols:
         if col in df.columns:
@@ -35,53 +39,76 @@ def apply_conditional_formatting(worksheet, df, workbook):
                 'value': 10,
                 'format': workbook.add_format({'bg_color': '#8B0000', 'font_color': '#FFFFFF'})
             })
+            # Add other conditional formatting rules...
 
-# ---- Main Logic ----
-if level_start_file and level_complete_file:
-    df_start = pd.read_csv(level_start_file)
-    df_complete = pd.read_csv(level_complete_file)
-
+def process_data(df_start, df_complete):
+    """Process and merge start/complete dataframes."""
+    # Clean and merge data
     df_start['LEVEL'] = df_start['LEVEL'].apply(clean_level)
     df_complete['LEVEL'] = df_complete['LEVEL'].apply(clean_level)
+    
+    merged = pd.merge(
+        df_start.rename(columns={'USERS': 'Start Users'}),
+        df_complete.rename(columns={'USERS': 'Complete Users'}),
+        on=['GAME_ID', 'DIFFICULTY', 'LEVEL'],
+        how='outer'
+    ).sort_values('LEVEL')
+    
+    # Calculate metrics
+    merged['Game Play Drop'] = ((merged['Start Users'] - merged['Complete Users']) / 
+                               merged['Start Users'].replace(0, np.nan)) * 100
+    merged['Total Level Drop'] = ((merged['Start Users'] - merged['Start Users'].shift(-1)) / 
+                                 merged['Start Users'].replace(0, np.nan)) * 100
+    merged['Retention %'] = (merged['Start Users'] / merged['Start Users'].max()) * 100
+    
+    return merged
 
-    df_start = df_start.rename(columns={'USERS': 'Start Users'})
-    df_complete = df_complete.rename(columns={'USERS': 'Complete Users'})
+def create_charts(df, version, date_selected):
+    """Generate matplotlib visualizations."""
+    charts = {}
+    df_100 = df[df['LEVEL'] <= 100].copy()
+    
+    # Retention chart
+    fig, ax = plt.subplots(figsize=(15, 7))
+    ax.plot(df_100['LEVEL'], df_100['Retention %'], color='#F57C00')
+    # Add chart formatting...
+    
+    return charts
 
-    merge_cols = ['GAME_ID', 'DIFFICULTY', 'LEVEL']
-    df_merge = pd.merge(df_start, df_complete, on=merge_cols, how='outer').sort_values(by='LEVEL')
+# ========================== Main Application Logic ========================== #
+def main():
+    st.sidebar.header("Upload CSV Files")
+    level_start = st.sidebar.file_uploader("LEVEL_START.csv", type="csv")
+    level_complete = st.sidebar.file_uploader("LEVEL_COMPLETE.csv", type="csv")
+    
+    version = st.sidebar.text_input("Game Version", "1.0.0")
+    analysis_date = st.sidebar.date_input("Analysis Date", datetime.date.today())
 
-    df_merge.fillna(0, inplace=True)
+    if level_start and level_complete:
+        df_start = pd.read_csv(level_start)
+        df_complete = pd.read_csv(level_complete)
+        
+        processed_df = process_data(df_start, df_complete)
+        
+        # Generate Excel report
+        output = BytesIO()
+        with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+            processed_df.to_excel(writer, index=False, sheet_name='Report')
+            workbook = writer.book
+            worksheet = writer.sheets['Report']
+            apply_conditional_formatting(worksheet, processed_df, workbook)
+        
+        # Download functionality
+        st.download_button(
+            label="Download Report",
+            data=output.getvalue(),
+            file_name=f"game_analysis_{version}_{analysis_date}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+        
+        # Display preview
+        st.dataframe(processed_df)
+        st.pyplot(create_charts(processed_df, version, analysis_date)['retention'])
 
-    # Calculations
-    df_merge['Game Play Drop'] = ((df_merge['Start Users'] - df_merge['Complete Users']) / df_merge['Start Users'].replace(0, np.nan)) * 100
-    df_merge['Popup Drop'] = ((df_merge['Complete Users'] - df_merge['Start Users'].shift(-1)) / df_merge['Complete Users'].replace(0, np.nan)) * 100
-    df_merge['Total Level Drop'] = ((df_merge['Start Users'] - df_merge['Start Users'].shift(-1)) / df_merge['Start Users'].replace(0, np.nan)) * 100
-    df_merge['Retention %'] = (df_merge['Start Users'] / df_merge['Start Users'].max()) * 100
-
-    # Download Button for Excel
-    output = BytesIO()
-    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-        sheet_name = f"{df_merge.iloc[0]['GAME_ID']}_{df_merge.iloc[0]['DIFFICULTY']}"
-        df_merge.to_excel(writer, index=False, sheet_name=sheet_name, startrow=1)
-
-        workbook = writer.book
-        worksheet = writer.sheets[sheet_name]
-        format_sheet(workbook, worksheet, df_merge)
-        apply_conditional_formatting(worksheet, df_merge, workbook)
-
-        # Backlink
-        worksheet.write('A1', f'=HYPERLINK("#\'MAIN_TAB\'!A1", "Back to Locate Sheet")')
-
-    st.download_button(
-        label="📥 Download Processed Excel",
-        data=output.getvalue(),
-        file_name="Processed_Game_Data.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
-
-    # Display in app
-    st.subheader("Preview of Merged and Processed Data")
-    st.dataframe(df_merge.head(50))
-
-else:
-    st.info("Please upload both LEVEL_START.csv and LEVEL_COMPLETE.csv files.")
+if __name__ == "__main__":
+    main()
