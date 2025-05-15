@@ -1,4 +1,3 @@
-
 # ========================== Step 1: Required Imports ========================== #
 import streamlit as st
 import pandas as pd
@@ -77,26 +76,56 @@ def merge_and_calculate(start_df, complete_df):
 
     return merged.round(2)
 
-# ========================== Step 4: Charting Functions ========================== #
+# ========================== Step 4: Enhanced Charting Functions ========================== #
 def create_charts(df, version, date_selected):
     charts = {}
     df_100 = df[df['LEVEL'] <= 100].copy()
+    xtick_labels = [f"$\\bf{{{x}}}$" if x % 5 == 0 else str(x) for x in range(1, 101)]
 
+    # Retention Chart
     fig1, ax1 = plt.subplots(figsize=(15, 7))
     ax1.plot(df_100['LEVEL'], df_100['RETENTION_%'], color='#F57C00', linewidth=2)
-    format_chart(ax1, "Retention Chart", version, date_selected)
+    format_chart(ax1, "Retention Chart (Levels 1-100)", version, date_selected)
+    ax1.set_ylim(0, 110)
+    ax1.set_yticks(np.arange(0, 110, 5))
+    
+    # Add retention percentages below x-axis
+    for x, y in zip(df_100['LEVEL'], df_100['RETENTION_%']):
+        if not np.isnan(y):
+            ax1.text(x, -5, f"{int(y)}", ha='center', va='top', fontsize=7)
     charts['retention'] = fig1
 
+    # Total Drop Chart
     fig2, ax2 = plt.subplots(figsize=(15, 6))
-    ax2.bar(df_100['LEVEL'], df_100['TOTAL_LEVEL_DROP'], color='#EF5350')
-    format_chart(ax2, "Total Level Drop Chart", version, date_selected)
+    bars = ax2.bar(df_100['LEVEL'], df_100['TOTAL_LEVEL_DROP'], color='#EF5350')
+    format_chart(ax2, "Total Level Drop Chart (Levels 1-100)", version, date_selected)
+    ax2.set_ylim(0, max(df_100['TOTAL_LEVEL_DROP'].max(), 10) + 10)
+    
+    # Add drop percentages below bars
+    for bar in bars:
+        x = bar.get_x() + bar.get_width() / 2
+        y = bar.get_height()
+        ax2.text(x, -2, f"{y:.0f}", ha='center', va='top', fontsize=7)
     charts['total_drop'] = fig2
 
+    # Combo Drop Chart
     fig3, ax3 = plt.subplots(figsize=(15, 6))
     width = 0.4
-    ax3.bar(df_100['LEVEL'] + width/2, df_100['GAME_PLAY_DROP'], width, color='#66BB6A')
-    ax3.bar(df_100['LEVEL'] - width/2, df_100['POPUP_DROP'], width, color='#42A5F5')
-    format_chart(ax3, "Game Play & Popup Drop Chart", version, date_selected)
+    bars1 = ax3.bar(df_100['LEVEL'] + width/2, df_100['GAME_PLAY_DROP'], width, color='#66BB6A')
+    bars2 = ax3.bar(df_100['LEVEL'] - width/2, df_100['POPUP_DROP'], width, color='#42A5F5')
+    format_chart(ax3, "Game Play & Popup Drop Chart (Levels 1-100)", version, date_selected)
+    max_drop = max(df_100['GAME_PLAY_DROP'].max(), df_100['POPUP_DROP'].max())
+    ax3.set_ylim(0, max(max_drop, 10) + 10)
+    
+    # Add percentages below bars
+    for bar in bars1:
+        x = bar.get_x() + bar.get_width() / 2
+        y = bar.get_height()
+        ax3.text(x, -2, f"{y:.0f}", ha='center', va='top', fontsize=7, color='#66BB6A')
+    for bar in bars2:
+        x = bar.get_x() + bar.get_width() / 2
+        y = bar.get_height()
+        ax3.text(x, -5, f"{y:.0f}", ha='center', va='top', fontsize=7, color='#42A5F5')
     charts['combo_drop'] = fig3
 
     return charts
@@ -105,9 +134,12 @@ def format_chart(ax, title, version, date_selected):
     ax.set_xlim(1, 100)
     ax.set_xticks(np.arange(1, 101, 1))
     ax.set_xticklabels([f"$\\bf{{{x}}}$" if x % 5 == 0 else str(x) for x in range(1, 101)], fontsize=6)
-    ax.set_title(f"{title} | Version {version} | {date_selected.strftime('%d-%m-%Y')}", fontsize=12, fontweight='bold')
+    ax.set_title(f"{title} | Version {version} | {date_selected.strftime('%d-%m-%Y')}", 
+                 fontsize=12, fontweight='bold', pad=20)
     ax.grid(True, linestyle='--', linewidth=0.5)
     ax.tick_params(axis='x', labelsize=6)
+    ax.set_xlabel("Level", labelpad=15)
+    ax.set_ylabel("% Of Users" if "Retention" in title else "% Of Users Drop", labelpad=15)
 
 # ========================== Step 5: Excel Generation ========================== #
 def generate_excel_report(processed_data, version, date_selected):
@@ -129,7 +161,7 @@ def generate_excel_report(processed_data, version, date_selected):
             "HINT_USED_SUM", "SKIPPED_SUM", "ATTEMPT_SUM"
         ])
 
-        # Style hyperlink cell as button
+        # Hyperlink styling
         hyperlink_cell = sheet['A1']
         hyperlink_cell.font = Font(color="FFFFFF", bold=True)
         hyperlink_cell.fill = PatternFill("solid", fgColor="0000FF")
@@ -149,10 +181,11 @@ def generate_excel_report(processed_data, version, date_selected):
                 row.get('ATTEMPT_SUM', 0)
             ])
 
+        # Add annotated charts
         charts = create_charts(df, version, date_selected)
         add_charts_to_sheet(sheet, charts)
 
-        # Calculate highlighted counts
+        # Main sheet data
         game_play_drop_count = (df['GAME_PLAY_DROP'] >= 3).sum()
         popup_drop_count = (df['POPUP_DROP'] >= 3).sum()
         total_level_drop_count = (df['TOTAL_LEVEL_DROP'] >= 3).sum()
@@ -168,7 +201,7 @@ def generate_excel_report(processed_data, version, date_selected):
         ]
         main_sheet.append(main_row)
 
-        # Style hyperlink in MAIN_TAB
+        # Hyperlink styling in main sheet
         hyperlink_cell_main = main_sheet.cell(row=main_sheet.max_row, column=10)
         hyperlink_cell_main.font = Font(color="0000FF", underline="single")
 
@@ -179,14 +212,20 @@ def add_charts_to_sheet(sheet, charts):
     row_map = {'retention': 1, 'total_drop': 35, 'combo_drop': 65}
     for name, fig in charts.items():
         buf = BytesIO()
-        fig.savefig(buf, format='png', bbox_inches='tight')
+        fig.savefig(buf, format='png', bbox_inches='tight', dpi=150)
         buf.seek(0)
         img = OpenpyxlImage(buf)
         img.anchor = f"M{row_map[name]}"
         sheet.add_image(img)
+        plt.close(fig)  # Close figure to free memory
 
 def format_workbook(wb):
     drop_columns = {"E", "F", "G"}
+    thin_border = Border(left=Side(style='thin'), 
+                        right=Side(style='thin'), 
+                        top=Side(style='thin'), 
+                        bottom=Side(style='thin'))
+
     for sheet in wb:
         sheet.freeze_panes = sheet["B2"] if sheet.title != "MAIN_TAB" else sheet["A2"]
 
@@ -195,48 +234,30 @@ def format_workbook(wb):
             cell.font = Font(bold=True, color="FFFFFF")
             cell.fill = PatternFill("solid", fgColor="4F81BD")
             cell.alignment = Alignment(horizontal='center')
+            cell.border = thin_border
 
-        # Auto-fit columns
+        # Auto-fit and formatting
         for col in sheet.columns:
-            max_length = 0
-            column_letter = get_column_letter(col[0].column)
+            max_length = max(
+                len(str(cell.value)) if cell.value else 0
+                for cell in col
+            )
+            sheet.column_dimensions[get_column_letter(col[0].column)].width = max_length + 2
+
             for cell in col:
-                cell_value = str(cell.value) if cell.value is not None else ""
-                if cell_value.startswith('=HYPERLINK('):
-                    match = re.search(r',\s*"([^"]+)"\)', cell_value)
-                    if match:
-                        cell_length = len(match.group(1))
-                    else:
-                        cell_length = len(cell_value)
-                else:
-                    cell_length = len(cell_value)
-                if cell_length > max_length:
-                    max_length = cell_length
-            adjusted_width = (max_length + 2)
-            sheet.column_dimensions[column_letter].width = adjusted_width
-
-        # Center alignment for all cells
-        for row in sheet.iter_rows():
-            for cell in row:
                 cell.alignment = Alignment(horizontal='center', vertical='center')
+                cell.border = thin_border
+                if cell.column_letter in drop_columns and isinstance(cell.value, (int, float)) and sheet.title != "MAIN_TAB":
+                    value = cell.value
+                    if value >= 10:
+                        cell.fill = PatternFill("solid", fgColor="7B241C")
+                    elif value >= 5:
+                        cell.fill = PatternFill("solid", fgColor="C0392B")
+                    elif value >= 3:
+                        cell.fill = PatternFill("solid", fgColor="F1948A")
+                    cell.font = Font(color="FFFFFF")
 
-        # Highlight drop columns only in game sheets
-        if sheet.title != "MAIN_TAB":
-            for row in sheet.iter_rows(min_row=2):
-                for cell in row:
-                    if cell.column_letter in drop_columns and isinstance(cell.value, (int, float)):
-                        value = cell.value
-                        if value >= 10:
-                            cell.fill = PatternFill("solid", fgColor="7B241C")
-                            cell.font = Font(color="FFFFFF")
-                        elif value >= 5:
-                            cell.fill = PatternFill("solid", fgColor="C0392B")
-                            cell.font = Font(color="FFFFFF")
-                        elif value >= 3:
-                            cell.fill = PatternFill("solid", fgColor="F1948A")
-                            cell.font = Font(color="FFFFFF")
-
-# ========================== Step 6: Streamlit UI ========================== #
+# ========================== Step 6: Streamlit UI Integration ========================== #
 def main():
     st.sidebar.header("Upload Files")
     start_files = st.sidebar.file_uploader("LEVEL_START Files", type=["csv", "xlsx"], accept_multiple_files=True)
@@ -250,8 +271,8 @@ def main():
             processed_data = process_game_data(start_files, complete_files)
 
             if processed_data:
+                # Generate Excel Report
                 wb = generate_excel_report(processed_data, version, date_selected)
-
                 with tempfile.NamedTemporaryFile(delete=False) as tmp:
                     wb.save(tmp.name)
                     tmp.seek(0)
@@ -264,9 +285,19 @@ def main():
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 )
 
+                # Streamlit Display
                 selected_game = st.selectbox("Select Game to Preview", list(processed_data.keys()))
-                st.dataframe(processed_data[selected_game])
-                st.pyplot(create_charts(processed_data[selected_game], version, date_selected)['retention'])
+                df = processed_data[selected_game]
+                
+                st.subheader("📈 Retention Chart (Levels 1-100)")
+                charts = create_charts(df, version, date_selected)
+                st.pyplot(charts['retention'])
+                
+                st.subheader("📉 Total Drop Chart (Levels 1-100)")
+                st.pyplot(charts['total_drop'])
+                
+                st.subheader("📉 Combo Drop Chart (Levels 1-100)")
+                st.pyplot(charts['combo_drop'])
 
 # ========================== Entry Point ========================== #
 if __name__ == "__main__":
