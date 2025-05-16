@@ -79,6 +79,30 @@ def create_charts(df, game_name):
     
     return charts
 
+# ======================== CHART ADDITION TO EXCEL ========================
+def add_charts_to_excel(worksheet, charts):
+    """Add matplotlib charts to Excel worksheet as images"""
+    img_positions = {
+        'retention': 'N2',
+        'total_drop': 'N39',
+        'combined_drop': 'N70'
+    }
+    
+    for chart_type in ['retention', 'total_drop', 'combined_drop']:
+        # Save chart to bytes buffer
+        img_data = BytesIO()
+        charts[chart_type].savefig(img_data, format='png', dpi=150, bbox_inches='tight')
+        img_data.seek(0)
+        
+        # Create image object
+        img = OpenpyxlImage(img_data)
+        
+        # Add image to worksheet
+        worksheet.add_image(img, img_positions[chart_type])
+        
+        # Close figure to prevent memory leaks
+        plt.close(charts[chart_type])
+
 # ======================== EXCEL GENERATION ========================
 def generate_excel(processed_data):
     """Create Excel workbook with formatted sheets"""
@@ -146,6 +170,10 @@ def generate_excel(processed_data):
         main_sheet.column_dimensions[get_column_letter(col)].width = 18
     
     return wb
+
+# ======================== REMAINING FUNCTIONS AND UI (UNCHANGED) ========================
+# [Keep the apply_sheet_formatting, apply_conditional_formatting, and main() functions 
+# from the previous implementation unchanged]
 
 def apply_sheet_formatting(sheet):
     """Apply consistent formatting to sheets"""
