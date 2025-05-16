@@ -270,35 +270,46 @@ def format_workbook(wb):
 # ========================== Step 6: Streamlit UI ========================== #
 def main():
     st.sidebar.header("Upload Files")
-    start_files = st.sidebar.file_uploader("LEVEL_START Files", type=["csv", "xlsx"], accept_multiple_files=True)
-    complete_files = st.sidebar.file_uploader("LEVEL_COMPLETE Files", type=["csv", "xlsx"], accept_multiple_files=True)
+    start_file = st.sidebar.file_uploader("LEVEL_START.csv", type="csv")
+    complete_file = st.sidebar.file_uploader("LEVEL_COMPLETE.csv", type="csv")
 
-    version = st.sidebar.text_input("Game Version", "1.0.0")
-    date_selected = st.sidebar.date_input("Analysis Date", datetime.date.today())
+    if start_file and complete_file:
+        with st.spinner("Processing data..."):
+            try:
+                # Read and process data
+                start_df = pd.read_csv(start_file)
+                complete_df = pd.read_csv(complete_file)
+                merged = process_game_data(start_df, complete_df)
 
-    if start_files and complete_files:
-        with st.spinner("Processing files..."):
-            processed_data = process_game_data(start_files, complete_files)
+                # Group by game and difficulty
+                processed_data = {}
+                for (game_id, difficulty), group in merged.groupby(['GAME_ID', 'DIFFICULTY']):
+                    processed_data[f"{game_id}"] = group
 
-            if processed_data:
-                wb = generate_excel_report(processed_data, version, date_selected)
+                # Generate Excel file
+                wb = process_game_data(processed_data)
 
+                # Save to bytes buffer
                 with tempfile.NamedTemporaryFile(delete=False) as tmp:
                     wb.save(tmp.name)
-                    tmp.seek(0)
-                    excel_data = tmp.read()
+                    with open(tmp.name, "rb") as f:
+                        excel_bytes = f.read()
 
+                # Download button
+                st.success("Processing complete!")
                 st.download_button(
-                    label="📥 Download Full Report",
-                    data=excel_data,
-                    file_name=f"Game_Analytics_{version}_{date_selected}.xlsx",
+                    label="📥 Download Consolidated Report",
+                    data=excel_bytes,
+                    file_name="Game_Analytics_Report.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 )
 
-                selected_game = st.selectbox("Select Game to Preview", list(processed_data.keys()))
-                st.dataframe(processed_data[selected_game])
-                st.pyplot(create_charts(processed_data[selected_game], version, date_selected)['retention'])
+                # Show preview
+                with st.expander("Preview Processed Data"):
+                    st.dataframe(merged.head(20))
 
-# ========================== Entry Point ========================== #
+            except Exception as e:
+                st.error(f"Error processing files: {str(e)}")
+
 if __name__ == "__main__":
     main()
