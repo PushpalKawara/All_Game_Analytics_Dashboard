@@ -132,7 +132,7 @@ def generate_excel(processed_data):
         ws['A1'].font = Font(color="0000FF", underline="single")
 
         # Prepare data for sheet
-        headers = [  "Level", "START_USERS", "COMPLETE_USERS", "GAME_PLAY_DROP",
+        headers = ["Level", "START_USERS", "COMPLETE_USERS", "GAME_PLAY_DROP",
                    "POPUP_DROP", "TOTAL_LEVEL_DROP", "RETENTION_%",
                    "PLAY_TIME_AVG", "HINT_USED_SUM", "SKIPPED_SUM", "ATTEMPTS_SUM"]
         ws.append(headers)
@@ -140,7 +140,6 @@ def generate_excel(processed_data):
         # Add data rows
         for _, row in df.iterrows():
             ws.append([
-                 f'=HYPERLINK("#MAIN_TAB!A1", "{sheet_name}")',
                 row['LEVEL'], row['START_USERS'], row['COMPLETE_USERS'],
                 row['GAME_PLAY_DROP'], row['POPUP_DROP'], row['TOTAL_LEVEL_DROP'],
                 row['RETENTION_%'], row['PLAY_TIME_AVG', 0], row['HINT_USED_SUM', 0],
