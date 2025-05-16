@@ -29,15 +29,15 @@ def process_files(start_df, complete_df):
         df.sort_values('LEVEL', inplace=True)
 
     # Rename columns
-    start_df = start_df.rename(columns={'USERS': 'Start Users'})
-    complete_df = complete_df.rename(columns={'USERS': 'Complete Users'})
+    start_df = start_df.rename(columns={'USERS': 'START_USERS'})
+    complete_df = complete_df.rename(columns={'USERS': 'COMPLETE_USERS'})
 
     # Merge data
     merge_cols = ['GAME_ID', 'DIFFICULTY', 'LEVEL']
     merged = pd.merge(start_df, complete_df, on=merge_cols, how='outer', suffixes=('_start', '_complete'))
 
     # Select required columns
-    keep_cols = ['GAME_ID', 'DIFFICULTY', 'LEVEL', 'Start Users', 'Complete Users',
+    keep_cols = ['GAME_ID', 'DIFFICULTY', 'LEVEL', 'START_USERS', 'COMPLETE_USERS',
                  'PLAY_TIME_AVG', 'HINT_USED_SUM', 'SKIPPED_SUM', 'ATTEMPTS_SUM']
     merged = merged[keep_cols]
 
@@ -48,7 +48,7 @@ def process_files(start_df, complete_df):
     merged['RETENTION_%'] = (merged['START_USERS'] / merged['START_USERS'].max()) * 100
 
     # Fill NaN values
-    merged.fillna({'Start Users': 0, 'Complete Users': 0}, inplace=True)
+    merged.fillna({'START_USERS': 0, 'COMPLETE_USERS': 0}, inplace=True)
     return merged
 
 # ======================== CHART GENERATION ========================
@@ -128,7 +128,7 @@ def generate_excel(processed_data):
         ws = wb.create_sheet(sheet_name)
 
         # Prepare data for sheet
-        headers = ["Level", "Start Users", "Complete Users", "Game Play Drop",
+        headers = ["Level", "START_USERS", "COMPLETE_USERS", "Game Play Drop",
                    "Popup Drop", "Total Level Drop", "Retention %",
                    "PLAY_TIME_AVG", "HINT_USED_SUM", "SKIPPED_SUM", "ATTEMPTS_SUM"]
         ws.append(headers)
@@ -137,7 +137,7 @@ def generate_excel(processed_data):
         for _, row in df.iterrows():
             ws.append([
                  '=HYPERLINK("#MAIN_TAB!A1", "Back to MAIN TAB")',
-                row['LEVEL'], row['Start Users'], row['Complete Users'],
+                row['LEVEL'], row['START_USERS'], row['COMPLETE_USERS'],
                 row['Game Play Drop'], row['Popup Drop'], row['Total Level Drop'],
                 row['Retention %'], row['PLAY_TIME_AVG'], row['HINT_USED_SUM'],
                 row['SKIPPED_SUM'], row['ATTEMPTS_SUM']
@@ -157,8 +157,8 @@ def generate_excel(processed_data):
             sum(df['Game Play Drop'] >= ( 0.03)),
             sum(df['Popup Drop'] >= ( 0.03)),
             sum(df['Total Level Drop'] >= ( 0.03)),
-            df['LEVEL'].min(), df['Start Users'].max(),
-            df['LEVEL'].max(), df['Complete Users'].iloc[-1],
+            df['LEVEL'].min(), df['START_USERS'].max(),
+            df['LEVEL'].max(), df['COMPLETE_USERS'].iloc[-1],
             f'=HYPERLINK("#{sheet_name}!A1", " Click to analyze")'
         ]
         main_sheet.append(main_row)
