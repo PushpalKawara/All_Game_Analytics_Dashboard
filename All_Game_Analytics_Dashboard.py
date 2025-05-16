@@ -123,8 +123,8 @@ def generate_excel(processed_data):
 
     # Process each game variant
     for idx, (game_id, df) in enumerate(processed_data.items(), start=1):
-        # sheet_name = f"{game_id}_{df['DIFFICULTY'].iloc[0]}"[:31]
-        sheet_name = f"{game_id}"[:31]
+        sheet_name = f"{game_id}_{df['DIFFICULTY'].iloc[0]}"[:31]
+        # sheet_name = f"{game_id}"[:31]
         ws = wb.create_sheet(sheet_name)
 
         # Prepare data for sheet
@@ -249,7 +249,8 @@ def main():
                 # Group by game and difficulty
                 processed_data = {}
                 for (game_id, difficulty), group in merged.groupby(['GAME_ID', 'DIFFICULTY']):
-                    processed_data[f"{game_id}_{difficulty}"] = group
+                    # processed_data[f"{game_id}_{difficulty}"] = group
+                    processed_data[f"{game_id}"] = group
 
                 # Generate Excel file
                 wb = generate_excel(processed_data)
