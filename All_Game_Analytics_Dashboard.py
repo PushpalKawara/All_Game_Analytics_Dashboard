@@ -178,10 +178,10 @@ def generate_excel(processed_data):
 def apply_sheet_formatting(sheet):
     """Apply consistent formatting to sheets"""
     # Freeze header row
-    sheet.freeze_panes = 'A1'
+    sheet.freeze_panes = 'A2'
     
     # Format headers
-    for cell in sheet[1]:  # Data headers start at row 2
+    for cell in sheet[2]:  # Data headers start at row 2
         cell.font = Font(bold=True)
         cell.fill = PatternFill("solid", fgColor="DDDDDD")
     
@@ -211,6 +211,12 @@ def apply_conditional_formatting(sheet, num_rows):
                 elif value >= 3:
                     cell.fill = red_scale['3']
                 cell.font = Font(color="FFFFFF")
+
+
+     # Center alignment for all cells
+    for row in sheet.iter_rows():
+        for cell in row:
+            cell.alignment = Alignment(horizontal='center', vertical='center')
 
 # ======================== STREAMLIT UI ========================
 def main():
