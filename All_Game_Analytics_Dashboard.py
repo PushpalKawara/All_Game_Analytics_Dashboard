@@ -58,22 +58,22 @@ def create_charts(df, game_name):
 
     # Retention Chart
     fig1, ax1 = plt.subplots(figsize=(12, 4))
-    ax1.plot(df['LEVEL'], df['Retention %'], color='#4CAF50')
-    ax1.set_title(f"{game_name} - Retention %", fontsize=10)
+    ax1.plot(df['LEVEL'], df['RETENTION_%'], color='#4CAF50')
+    ax1.set_title(f"{game_name} - RETENTION_%", fontsize=10)
     charts['retention'] = fig1
 
     # Total Level Drop Chart
     fig2, ax2 = plt.subplots(figsize=(12, 4))
-    ax2.bar(df['LEVEL'], df['Total Level Drop'], color='#F44336')
-    ax2.set_title(f"{game_name} - Total Level Drop", fontsize=10)
+    ax2.bar(df['LEVEL'], df['TOTAL_LEVEL_DROP'], color='#F44336')
+    ax2.set_title(f"{game_name} - TOTAL_LEVEL_DROP", fontsize=10)
     charts['total_drop'] = fig2
 
     # Combined Drop Chart
     fig3, ax3 = plt.subplots(figsize=(12, 4))
     width = 0.35
     ax3.bar(df['LEVEL'] - width/2, df['GAME_PLAY_DROP'], width, label='GAME_PLAY_DROP')
-    ax3.bar(df['LEVEL'] + width/2, df['Popup Drop'], width, label='Popup Drop')
-    ax3.set_title(f"{game_name} - Drop Comparison", fontsize=10)
+    ax3.bar(df['LEVEL'] + width/2, df['POPUP_DROP'], width, label='POPUP_DROP')
+    ax3.set_title(f"{game_name} - Drop", fontsize=10)
     ax3.legend()
     charts['combined_drop'] = fig3
 
@@ -111,7 +111,7 @@ def generate_excel(processed_data):
 
     # Create MAIN_TAB sheet
     main_sheet = wb.create_sheet("MAIN_TAB")
-    main_headers = ["Index", "Sheet Name", "GAME_PLAY_DROP_Count", "POPUP_DROPPOPUP_DROP_Count",
+    main_headers = ["Index", "Sheet Name", "GAME_PLAY_DROP_Count", "POPUP_DROP_Count",
                     "TOTAL_LEVEL_DROP_Count", "LEVEL_Start", "USERS_starts",
                     "LEVEL_End", "USERS_END", "Link to Sheet"]
     main_sheet.append(main_headers)
