@@ -42,9 +42,9 @@ def process_files(start_df, complete_df):
     merged = merged[keep_cols]
 
   # Calculate metrics
-    merged['Game Play Drop'] = ((merged['Start Users'] - merged['Complete Users']) / merged['START_USERS'].replace(0, np.nan)) * 100
-    merged['Popup Drop'] = ((merged['Complete Users'] - merged['Start Users'].shift(-1)) / merged['COMPLETE_USERS'].replace(0, np.nan)) * 100
-    merged['Total Level Drop'] = ((merged['Start Users'] - merged['Start Users'].shift(-1)) / merged['START_USERS'].replace(0, np.nan)) * 100
+    merged['Game Play Drop'] = ((merged['Start Users'] - merged['Complete Users']) / merged['Start Users'].replace(0, np.nan)) * 100
+    merged['Popup Drop'] = ((merged['Complete Users'] - merged['Start Users'].shift(-1)) / merged['Complete Users'].replace(0, np.nan)) * 100
+    merged['Total Level Drop'] = ((merged['Start Users'] - merged['Start Users'].shift(-1)) / merged['Start Users'].replace(0, np.nan)) * 100
     merged['Retention %'] = (merged['Start Users'] / merged['Start Users'].max()) * 100
     # Fill NaN values
     merged.fillna({'Start Users': 0, 'Complete Users': 0}, inplace=True)
@@ -111,7 +111,7 @@ def generate_excel(processed_data):
     # Create MAIN_TAB sheet
     main_sheet = wb.create_sheet("MAIN_TAB")
     main_headers = ["Index", "Sheet Name", "Game Play Drop Count", "Popup Drop Count",
-                    "Total Level Drop Count", "LEVEL_Start", "USERS_starts",
+                    "Total Level Drop Count", "LEVEL_Start", "Start Users",
                     "LEVEL_End", "USERS_END", "Link to Sheet"]
     main_sheet.append(main_headers)
 
