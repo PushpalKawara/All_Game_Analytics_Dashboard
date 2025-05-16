@@ -123,7 +123,8 @@ def generate_excel(processed_data):
 
     # Process each game variant
     for idx, (game_id, df) in enumerate(processed_data.items(), start=1):
-        sheet_name = f"{game_id}_{df['DIFFICULTY'].iloc[0]}"[:31]
+        # sheet_name = f"{game_id}_{df['DIFFICULTY'].iloc[0]}"[:31]
+        sheet_name = f"{game_id}"[:31]
         ws = wb.create_sheet(sheet_name)
 
         # Prepare data for sheet
