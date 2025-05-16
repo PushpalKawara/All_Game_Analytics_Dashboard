@@ -158,8 +158,8 @@ def generate_excel(processed_data):
     return wb
 
 # ========== STREAMLIT UI ==========
-start_file = st.file_uploader("Upload START_USERS Excel file", type=['xlsx'])
-complete_file = st.file_uploader("Upload COMPLETE_USERS Excel file", type=['xlsx'])
+start_file = st.file_uploader("Upload START_USERS Excel file", type=['csv'])
+complete_file = st.file_uploader("Upload COMPLETE_USERS Excel file", type=['csv'])
 
 if start_file and complete_file:
     try:
