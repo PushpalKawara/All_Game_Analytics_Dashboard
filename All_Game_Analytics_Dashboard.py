@@ -71,7 +71,7 @@ def create_charts(df, game_name):
     # Combined Drop Chart
     fig3, ax3 = plt.subplots(figsize=(12, 4))
     width = 0.35
-    ax3.bar(df['LEVEL'] - width/2, df['Game Play Drop'], width, label='Game Play Drop')
+    ax3.bar(df['LEVEL'] - width/2, df['GAME_PLAY_DROP'], width, label='GAME_PLAY_DROP')
     ax3.bar(df['LEVEL'] + width/2, df['Popup Drop'], width, label='Popup Drop')
     ax3.set_title(f"{game_name} - Drop Comparison", fontsize=10)
     ax3.legend()
@@ -111,8 +111,8 @@ def generate_excel(processed_data):
 
     # Create MAIN_TAB sheet
     main_sheet = wb.create_sheet("MAIN_TAB")
-    main_headers = ["Index", "Sheet Name", "Game Play Drop Count", "Popup Drop Count",
-                    "Total Level Drop Count", "LEVEL_Start", "USERS_starts",
+    main_headers = ["Index", "Sheet Name", "GAME_PLAY_DROP_Count", "POPUP_DROPPOPUP_DROP_Count",
+                    "TOTAL_LEVEL_DROP_Count", "LEVEL_Start", "USERS_starts",
                     "LEVEL_End", "USERS_END", "Link to Sheet"]
     main_sheet.append(main_headers)
 
@@ -128,8 +128,8 @@ def generate_excel(processed_data):
         ws = wb.create_sheet(sheet_name)
 
         # Prepare data for sheet
-        headers = ["Level", "START_USERS", "COMPLETE_USERS", "Game Play Drop",
-                   "Popup Drop", "Total Level Drop", "Retention %",
+        headers = ["Level", "START_USERS", "COMPLETE_USERS", "GAME_PLAY_DROP",
+                   "POPUP_DROP", "TOTAL_LEVEL_DROP", "RETENTION_%",
                    "PLAY_TIME_AVG", "HINT_USED_SUM", "SKIPPED_SUM", "ATTEMPTS_SUM"]
         ws.append(headers)
 
@@ -138,8 +138,8 @@ def generate_excel(processed_data):
             ws.append([
                  '=HYPERLINK("#MAIN_TAB!A1", "Back to MAIN TAB")',
                 row['LEVEL'], row['START_USERS'], row['COMPLETE_USERS'],
-                row['Game Play Drop'], row['Popup Drop'], row['Total Level Drop'],
-                row['Retention %'], row['PLAY_TIME_AVG'], row['HINT_USED_SUM'],
+                row['GAME_PLAY_DROP'], row['POPUP_DROP'], row['TOTAL_LEVEL_DROP'],
+                row['RETENTION_%'], row['PLAY_TIME_AVG'], row['HINT_USED_SUM'],
                 row['SKIPPED_SUM'], row['ATTEMPTS_SUM']
             ])
 
@@ -154,9 +154,9 @@ def generate_excel(processed_data):
         # Update MAIN_TAB
         main_row = [
             idx, sheet_name,
-            sum(df['Game Play Drop'] >= ( 0.03)),
-            sum(df['Popup Drop'] >= ( 0.03)),
-            sum(df['Total Level Drop'] >= ( 0.03)),
+            sum(df['GAME_PLAY_DROP'] >= ( 0.03)),
+            sum(df['POPUP_DROP'] >= ( 0.03)),
+            sum(df['TOTAL_LEVEL_DROP'] >= ( 0.03)),
             df['LEVEL'].min(), df['START_USERS'].max(),
             df['LEVEL'].max(), df['COMPLETE_USERS'].iloc[-1],
             f'=HYPERLINK("#{sheet_name}!A1", " Click to analyze")'
