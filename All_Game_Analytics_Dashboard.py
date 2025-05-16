@@ -194,35 +194,35 @@ def apply_conditional_formatting(sheet, num_rows):
         '10': PatternFill(start_color='FF6666', end_color='FF6666', fill_type='solid')
     }
 
-    # for row in sheet.iter_rows(min_row=2, max_row=num_rows+0):
-    #     for cell in row:
-    #         if cell.column_letter in drop_columns and cell.value is not None:
-    #             value = cell.value
-    #             if value >= 10:
-    #                 cell.fill = red_scale['10']
-    #             elif value >= 7:
-    #                 cell.fill = red_scale['7']
-    #             elif value >= 3:
-    #                 cell.fill = red_scale['3']
-    #             cell.font = Font(color="FFFFFF")
+    for row in sheet.iter_rows(min_row=2):
+        for cell in row:
+            if cell.column_letter in drop_columns and cell.value is not None:
+                value = cell.value
+                if value >= 10:
+                    cell.fill = red_scale['10']
+                elif value >= 7:
+                    cell.fill = red_scale['7']
+                elif value >= 3:
+                    cell.fill = red_scale['3']
+                cell.font = Font(color="FFFFFF")
 
 
 
-    # Highlight drop columns only in game sheets
-    if sheet.title != "MAIN_TAB":
-            for row in sheet.iter_rows(min_row=2):
-                for cell in row:
-                    if cell.column_letter in drop_columns and isinstance(cell.value, (int, float)):
-                        value = cell.value
-                        if value >= 10:
-                            cell.fill = PatternFill("solid", fgColor="7B241C")
-                            cell.font = Font(color="FFFFFF")
-                        elif value >= 7:
-                            cell.fill = PatternFill("solid", fgColor="C0392B")
-                            cell.font = Font(color="FFFFFF")
-                        elif value >= 3:
-                            cell.fill = PatternFill("solid", fgColor="F1948A")
-                            cell.font = Font(color="FFFFFF")
+    # # Highlight drop columns only in game sheets
+    # if sheet.title != "MAIN_TAB":
+    #         for row in sheet.iter_rows(min_row=2):
+    #             for cell in row:
+    #                 if cell.column_letter in drop_columns and isinstance(cell.value, (int, float)):
+    #                     value = cell.value
+    #                     if value >= 10:
+    #                         cell.fill = PatternFill("solid", fgColor="7B241C")
+    #                         cell.font = Font(color="FFFFFF")
+    #                     elif value >= 7:
+    #                         cell.fill = PatternFill("solid", fgColor="C0392B")
+    #                         cell.font = Font(color="FFFFFF")
+    #                     elif value >= 3:
+    #                         cell.fill = PatternFill("solid", fgColor="F1948A")
+    #                         cell.font = Font(color="FFFFFF")
 
 
 
