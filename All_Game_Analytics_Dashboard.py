@@ -127,8 +127,12 @@ def generate_excel(processed_data):
         # sheet_name = f"{game_id}"[:31]
         ws = wb.create_sheet(sheet_name)
 
+        # Add backlink to MAIN_TAB
+        ws['A1'] = '=HYPERLINK("#MAIN_TAB!A1", "Back to Main")'
+        ws['A1'].font = Font(color="0000FF", underline="single")
+
         # Prepare data for sheet
-        headers = [  '=HYPERLINK("#MAIN_TAB!A1", "Back to MAIN SHEET")',  "Level", "START_USERS", "COMPLETE_USERS", "GAME_PLAY_DROP",
+        headers = [  "Level", "START_USERS", "COMPLETE_USERS", "GAME_PLAY_DROP",
                    "POPUP_DROP", "TOTAL_LEVEL_DROP", "RETENTION_%",
                    "PLAY_TIME_AVG", "HINT_USED_SUM", "SKIPPED_SUM", "ATTEMPTS_SUM"]
         ws.append(headers)
