@@ -139,8 +139,8 @@ def generate_excel(processed_data):
         for _, row in df.iterrows():
             ws.append([
                 row['LEVEL'], row['Start Users'], row['Complete Users'],
-                row['Game Play Drop', 0], row['Popup Drop', 0], row['Total Level Drop', 0],
-                row['Retention %', 0 ], row['PLAY_TIME_AVG', 0], row['HINT_USED_SUM', 0],
+                row['Game Play Drop', ], row['Popup Drop', ], row['Total Level Drop',],
+                row['Retention %', ], row['PLAY_TIME_AVG', 0], row['HINT_USED_SUM', 0],
                 row['SKIPPED_SUM' ,0], row['ATTEMPTS_SUM',0]
             ])
 
