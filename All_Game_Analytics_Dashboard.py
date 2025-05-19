@@ -1,106 +1,162 @@
+import os
 import streamlit as st
 import pandas as pd
-import numpy as np
-import io
-import xlsxwriter
+import openpyxl
+from openpyxl import Workbook
+from openpyxl.styles import Alignment, PatternFill, Font
+from openpyxl.utils import get_column_letter
+from openpyxl.chart import LineChart, BarChart, Reference
 
-st.set_page_config(page_title="Game Progression Report Generator")
-st.title("🎮 BrainGames Progression Report Generator")
-st.write("Upload your **level_started** and **level_completed** files to generate a full game analytics report with sheet links, drop rates, and retention.")
+# Constants
+STYLE_HEADER = PatternFill(start_color='002060', end_color='002060', fill_type='solid')
+STYLE_FONT_WHITE = Font(color='FFFFFF')
+CENTRAL_ALIGN = Alignment(horizontal='center', vertical='center')
 
-# Upload
-start_file = st.file_uploader("Upload level_started.csv", type="csv")
-complete_file = st.file_uploader("Upload level_completed.csv", type="csv")
+def clean_level(df):
+    df['LEVEL'] = df['LEVEL'].str.replace(r'(?i)^level_?', '', regex=True).astype(int)
+    return df.sort_values('LEVEL')
 
-if start_file and complete_file:
-    df_start = pd.read_csv(start_file)
-    df_complete = pd.read_csv(complete_file)
+def process_files(start_file, complete_file):
+    # Read and clean data
+    df_start = pd.read_csv(start_file).rename(columns={'USERS': 'Start Users'})
+    df_complete = pd.read_csv(complete_file).rename(columns={'USERS': 'Complete Users'})
+    
+    df_start = clean_level(df_start)
+    df_complete = clean_level(df_complete)
 
-    # Expected columns
-    expected_cols = ['GAME_ID', 'DIFFICULTY', 'Level', 'USERS']
-    if not all(col in df_start.columns for col in expected_cols) or not all(col in df_complete.columns for col in expected_cols):
-        st.error("❌ One of the files is missing required columns.")
-        st.stop()
-
-    # Process input
-    start_grp = df_start.groupby(['GAME_ID', 'DIFFICULTY', 'Level'])['USERS'].nunique().reset_index()
-    start_grp.rename(columns={'user': 'Start Users'}, inplace=True)
-
-    complete_grp = df_complete.groupby(['GAME_ID', 'DIFFICULTY', 'Level'])['USERS'].nunique().reset_index()
-    complete_grp.rename(columns={'user': 'Complete Users'}, inplace=True)
-
-    merged = pd.merge(start_grp, complete_grp, on=['GAME_ID', 'DIFFICULTY', 'Level'], how='left')
-    merged['Complete Users'] = merged['Complete Users'].fillna(0).astype(int)
-    merged.sort_values(by=['GAME_ID', 'DIFFICULTY', 'Level'], inplace=True)
-
-    # Drop Rate
-    merged['Total Level Drop'] = (merged['Start Users'] - merged['Complete Users']) / merged['Start Users']
-    merged['Total Level Drop'] = merged['Total Level Drop'].round(4)
-
-    # Retention %
-    merged['Retention %'] = 0.0
-    for (game, mode), group in merged.groupby(['GAME_ID', 'DIFFICULTY']):
-        idx = group.index
-        start_values = group['Start Users'].values
-        retention = [start_values[i + 1] / start_values[i] if i + 1 < len(start_values) and start_values[i] > 0 else 0 for i in range(len(start_values))]
-        retention.append(0)
-        merged.loc[idx, 'Retention %'] = retention
-
-    merged['Retention %'] = merged['Retention %'].round(4)
-
-    # Prepare Excel
-    output = io.BytesIO()
-    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-        workbook = writer.book
-
-        # Create main sheet with hyperlinks
-        summary_sheet = 'LIS'
-        summary_df = merged.groupby(['GAME_ID', 'DIFFICULTY']).size().reset_index().drop(columns=0)
-        summary_df['Link'] = ""
-
-        for idx, row in summary_df.iterrows():
-            sheet_name = f"{row['GAME_ID']}_{row['DIFFICULTY']}".replace(" ", "_")[:31]
-            summary_df.at[idx, 'Link'] = f"=HYPERLINK(\"#{sheet_name}!A1\", \"View\")"
-
-        summary_df.to_excel(writer, sheet_name=summary_sheet, index=False)
-        summary_ws = writer.sheets[summary_sheet]
-
-        # Format main sheet
-        header_fmt = workbook.add_format({'bold': True, 'bg_color': '#D7E4BC'})
-        for col_num, value in enumerate(summary_df.columns):
-            summary_ws.write(0, col_num, value, header_fmt)
-        summary_ws.freeze_panes(1, 0)
-
-        # Create each sheet
-        for (game, mode), group in merged.groupby(['GAME_ID', 'DIFFICULTY']):
-            sheet_name = f"{game}_{mode}".replace(" ", "_")[:31]
-            group.to_excel(writer, sheet_name=sheet_name, index=False)
-            ws = writer.sheets[sheet_name]
-
-            # Format headers
-            for col_num, value in enumerate(group.columns):
-                ws.write(0, col_num, value, header_fmt)
-
-            # Freeze header
-            ws.freeze_panes(1, 0)
-
-            # Apply conditional formatting for Drop > 5%
-            drop_col_idx = group.columns.get_loc('Total Level Drop')
-            ws.conditional_format(1, drop_col_idx, len(group), drop_col_idx, {
-                'type': 'cell',
-                'criteria': '>',
-                'value': 0.05,
-                'format': workbook.add_format({'bg_color': 'yellow', 'font_color': 'red'})
-            })
-
-            # Add "Back to Main Sheet" link
-            ws.write('K1', f'=HYPERLINK("#{summary_sheet}!A1", "← Back to Summary")',
-                     workbook.add_format({'bold': True, 'font_color': 'blue'}))
-
-    st.success("✅ Report ready!")
-    st.download_button(
-        label="📥 Download Game Progression Report",
-        data=output.getvalue(),
-        file_name="BrainGames_allgameProgression.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    # Merge data
+    merged = pd.merge(
+        df_start[['GAME_ID', 'DIFFICULTY', 'LEVEL', 'Start Users']],
+        df_complete[['GAME_ID', 'DIFFICULTY', 'LEVEL', 'Complete Users', 
+                    'PLAY_TIME_AVG', 'HINT_USED_SUM', 'SKIPPED_SUM', 'ATTEMPTS_SUM']],
+        on=['GAME_ID', 'DIFFICULTY', 'LEVEL'],
+        how='outer'
     )
+
+    # Add calculated columns
+    merged['Game Play Drop'] = merged['Start Users'] - merged['Complete Users']
+    merged['Popup Drop'] = merged['Start Users'] * 0.03
+    merged['Total Level Drop'] = merged['Game Play Drop'] + merged['Popup Drop']
+    merged['Retention %'] = (merged['Complete Users'] / merged['Start Users'] * 100).round(2)
+    
+    return merged
+
+def apply_formatting(ws):
+    # Freeze header and apply styles
+    ws.freeze_panes = 'A2'
+    for row in ws.iter_rows(min_row=1, max_row=1):
+        for cell in row:
+            cell.fill = STYLE_HEADER
+            cell.font = STYLE_FONT_WHITE
+            cell.alignment = CENTRAL_ALIGN
+
+    # Set central alignment for all cells
+    for row in ws.iter_rows():
+        for cell in row:
+            cell.alignment = CENTRAL_ALIGN
+
+    # Autofit columns
+    for col in ws.columns:
+        max_length = max(len(str(cell.value)) for cell in col)
+        ws.column_dimensions[get_column_letter(col[0].column)].width = max_length + 2
+
+def create_charts(ws, max_row):
+    # Retention Line Chart
+    retention_chart = LineChart()
+    data = Reference(ws, min_col=6, min_row=1, max_row=max_row, max_col=6)
+    retention_chart.add_data(data, titles_from_data=True)
+    retention_chart.title = "Retention % Trend"
+    retention_chart.style = 13
+    ws.add_chart(retention_chart, "N2")
+
+    # Total Level Drop Bar Chart
+    drop_chart = BarChart()
+    data = Reference(ws, min_col=8, min_row=1, max_row=max_row, max_col=8)
+    drop_chart.add_data(data, titles_from_data=True)
+    drop_chart.title = "Total Level Drop"
+    ws.add_chart(drop_chart, "N39")
+
+    # Combined Drop Chart
+    combined_chart = BarChart()
+    data = Reference(ws, min_col=5, min_row=1, max_row=max_row, max_col=7)
+    combined_chart.add_data(data, titles_from_data=True)
+    combined_chart.title = "Game Play vs Popup Drops"
+    ws.add_chart(combined_chart, "N70")
+
+def create_main_tab(wb, all_sheets):
+    main_ws = wb.create_sheet("MAIN_TAB", 0)
+    headers = [
+        "Index", "Sheet Name", "Game Play Drop Count", "Popup Drop Count",
+        "Total Level Drop Count", "LEVEL_Start", "USERS_starts",
+        "LEVEL_End", "USERS_END", "Link to Sheet"
+    ]
+    main_ws.append(headers)
+    
+    for idx, sheet_data in enumerate(all_sheets, 1):
+        game_name = sheet_data['name']
+        main_ws.append([
+            idx,
+            game_name,
+            f"Count > 3%",
+            f"Count > 3%",
+            f"Count > 3%",
+            f"Level {sheet_data['min_level']}",
+            sheet_data['max_start'],
+            f"Level {sheet_data['max_level']}",
+            sheet_data['min_complete'],
+            f'=HYPERLINK("##{game_name}!A1", "View {game_name}")'
+        ])
+    
+    apply_formatting(main_ws)
+
+def process_data(uploaded_files):
+    wb = Workbook()
+    del wb['Sheet']  # Remove default sheet
+    
+    all_sheets = []
+    for start_file, complete_file in zip(uploaded_files[::2], uploaded_files[1::2]):
+        df = process_files(start_file, complete_file)
+        game_id = df['GAME_ID'].iloc[0]
+        difficulty = df['DIFFICULTY'].iloc[0]
+        sheet_name = f"{game_id}_{difficulty}"
+        
+        # Create new worksheet
+        ws = wb.create_sheet(sheet_name)
+        for r in dataframe_to_rows(df, index=False, header=True):
+            ws.append(r)
+        
+        # Apply formatting and charts
+        apply_formatting(ws)
+        create_charts(ws, len(df)+1)
+        
+        # Add backlink to main tab
+        ws['A1'] = f'=HYPERLINK("##MAIN_TAB!A1", "Back to Main")'
+        
+        # Collect sheet metadata
+        all_sheets.append({
+            'name': sheet_name,
+            'min_level': df['LEVEL'].min(),
+            'max_level': df['LEVEL'].max(),
+            'max_start': df['Start Users'].max(),
+            'min_complete': df['Complete Users'].min()
+        })
+    
+    create_main_tab(wb, all_sheets)
+    return wb
+
+# Streamlit UI
+st.title("🎮 Game Analytics Dashboard")
+uploaded_files = st.file_uploader("Upload LEVEL_START and LEVEL_COMPLETE CSVs", 
+                                type="csv", accept_multiple_files=True)
+
+if len(uploaded_files) % 2 == 0 and uploaded_files:
+    with st.spinner('Processing data...'):
+        wb = process_data(uploaded_files)
+        wb.save("Consolidated.xlsx")
+        
+    with open("Consolidated.xlsx", "rb") as f:
+        st.download_button("📥 Download Consolidated Report", f, 
+                         file_name="Game_Analytics_Report.xlsx",
+                         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+else:
+    st.warning("Please upload matching pairs of LEVEL_START and LEVEL_COMPLETE files")
