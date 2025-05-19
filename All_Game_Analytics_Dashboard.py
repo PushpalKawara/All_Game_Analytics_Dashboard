@@ -180,10 +180,9 @@ def apply_sheet_formatting(sheet):
     sheet.freeze_panes = 'A1'
 
     # Format headers
-    for cell in sheet[1]:  # Data headers start at row 1
+    for cell in sheet[2]:  # Data headers start at row 1
         cell.font = Font(bold=True)
         cell.fill = PatternFill("solid", fgColor="DDDDDD")
-
 
     # Auto-fit columns
     for col in sheet.columns:
@@ -200,7 +199,7 @@ def apply_conditional_formatting(sheet, num_rows):
         '10': PatternFill(start_color='FF6666', end_color='FF6666', fill_type='solid')
     }
 
-    for row in sheet.iter_rows(min_row=2, max_row=num_rows+1):
+    for row in sheet.iter_rows(min_row=3, max_row=num_rows+2):
         for cell in row:
             if cell.column_letter in drop_columns and cell.value is not None:
                 value = cell.value
