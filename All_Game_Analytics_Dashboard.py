@@ -72,7 +72,7 @@ def add_charts_to_excel(worksheet, charts):
         'combined_drop': 'N65'
     }
 
-    for chart_type in charts:
+    for chart_type in ['retention', 'total_drop', 'combined_drop']:
         img_data = BytesIO()
         charts[chart_type].savefig(img_data, format='png', dpi=150, bbox_inches='tight')
         img_data.seek(0)
