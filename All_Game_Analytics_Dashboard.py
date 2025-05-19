@@ -41,12 +41,11 @@ def process_files(start_df, complete_df):
                  'PLAY_TIME_AVG', 'HINT_USED_SUM', 'SKIPPED_SUM', 'ATTEMPTS_SUM']
     merged = merged[keep_cols]
 
-    # Calculate metrics
-    merged['Game Play Drop'] = merged['Start Users'] - merged['Complete Users']
-    merged['Popup Drop'] = merged['Start Users'] * 0.03
-    merged['Total Level Drop'] = merged['Game Play Drop'] + merged['Popup Drop']
-    merged['Retention %'] = (merged['Complete Users'] / merged['Start Users'].replace(0, np.nan)) * 100
-
+  # Calculate metrics
+    merged['Game Play Drop'] = ((merged['Start Users'] - merged['Complete Users']) / merged['Start Users'].replace(0, np.nan)) * 100
+    merged['Popup Drop'] = ((merged['Complete Users'] - merged['Start Users'].shift(-1)) / merged['Complete Users'].replace(0, np.nan)) * 100
+    merged['Total Level Drop'] = ((merged['Start Users'] - merged['Start Users'].shift(-1)) / merged['Start Users'].replace(0, np.nan)) * 100
+    merged['Retention %'] = (merged['Start Users'] / merged['Start Users'].max()) * 100
     # Fill NaN values
     merged.fillna({'Start Users': 0, 'Complete Users': 0}, inplace=True)
     return merged
@@ -83,9 +82,9 @@ def create_charts(df, game_name):
 def add_charts_to_excel(worksheet, charts):
     """Add matplotlib charts to Excel worksheet as images"""
     img_positions = {
-        'retention': 'N2',
-        'total_drop': 'N39',
-        'combined_drop': 'N70'
+        'retention': 'M2',
+        'total_drop': 'N32',
+        'combined_drop': 'N65'
     }
 
     for chart_type in ['retention', 'total_drop', 'combined_drop']:
@@ -112,7 +111,7 @@ def generate_excel(processed_data):
     # Create MAIN_TAB sheet
     main_sheet = wb.create_sheet("MAIN_TAB")
     main_headers = ["Index", "Sheet Name", "Game Play Drop Count", "Popup Drop Count",
-                    "Total Level Drop Count", "LEVEL_Start", "USERS_starts",
+                    "Total Level Drop Count", "LEVEL_Start", "Start Users",
                     "LEVEL_End", "USERS_END", "Link to Sheet"]
     main_sheet.append(main_headers)
 
@@ -212,6 +211,12 @@ def apply_conditional_formatting(sheet, num_rows):
                     cell.fill = red_scale['3']
                 cell.font = Font(color="FFFFFF")
 
+
+     # Center alignment for all cells
+    for row in sheet.iter_rows():
+        for cell in row:
+            cell.alignment = Alignment(horizontal='center', vertical='center')
+
 # ======================== STREAMLIT UI ========================
 def main():
     st.sidebar.header("Upload Files")
@@ -229,7 +234,7 @@ def main():
                 # Group by game and difficulty
                 processed_data = {}
                 for (game_id, difficulty), group in merged.groupby(['GAME_ID', 'DIFFICULTY']):
-                    processed_data[f"{game_id}_{difficulty}"] = group
+                    processed_data[f"{game_id}"] = group
 
                 # Generate Excel file
                 wb = generate_excel(processed_data)
