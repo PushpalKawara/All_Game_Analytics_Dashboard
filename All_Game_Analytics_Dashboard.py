@@ -42,12 +42,25 @@ st.markdown("""
 def clean_level(level):
     """Extract numeric level value with enhanced parsing"""
     try:
-        return int(re.sub(r'^(Level|LEVEL)[_ ]?', '', str(level), 10)
+        return int(re.sub(r'^(Level|LEVEL)[_ ]?', '', str(level), flags=re.IGNORECASE))
     except ValueError:
         return 0
 
+def convert_to_numeric(df, columns):
+    """Convert specified columns to numeric"""
+    for col in columns:
+        df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
+    return df
+
 def process_data(start_df, complete_df):
     """Process and merge data with comprehensive validation"""
+    # Convert all numeric columns
+    numeric_cols = ['COUNT', 'EVENT AMOUNT', 'AMOUNT %', 'USERS', 'EVENTS PER USER',
+                    'PLAY_TIME_AVG', 'HINT_USED_SUM', 'SKIPPED_SUM', 'ATTEMPTS_SUM']
+    
+    start_df = convert_to_numeric(start_df, numeric_cols)
+    complete_df = convert_to_numeric(complete_df, numeric_cols)
+
     # Data Cleaning
     for df in [start_df, complete_df]:
         df['LEVEL'] = df['LEVEL'].apply(clean_level)
@@ -65,23 +78,24 @@ def process_data(start_df, complete_df):
         complete_df[merge_keys + ['Complete Users', 'PLAY_TIME_AVG',
                    'HINT_USED_SUM', 'SKIPPED_SUM', 'ATTEMPTS_SUM']],
         on=merge_keys, how='outer', suffixes=('', '_y')
+    )
     
     # Clean merged columns
     merged_df = merged_df.loc[:,~merged_df.columns.duplicated()]
     
-    # Fill NaN values
+    # Fill NaN values and convert to integers
     numeric_cols = ['Start Users', 'Complete Users', 'PLAY_TIME_AVG',
                     'HINT_USED_SUM', 'SKIPPED_SUM', 'ATTEMPTS_SUM']
-    merged_df[numeric_cols] = merged_df[numeric_cols].fillna(0)
+    merged_df[numeric_cols] = merged_df[numeric_cols].fillna(0).astype(int)
     
     # Calculate metrics
     merged_df['Game Play Drop'] = merged_df['Start Users'] - merged_df['Complete Users']
-    merged_df['Popup Drop'] = merged_df['Start Users'] * 0.03
+    merged_df['Popup Drop'] = (merged_df['Start Users'] * 0.03).round(2)
     merged_df['Total Level Drop'] = merged_df['Game Play Drop'] + merged_df['Popup Drop']
     merged_df['Retention %'] = np.where(
         merged_df['Start Users'] == 0, 0,
         (merged_df['Complete Users'] / merged_df['Start Users']) * 100
-    )
+    ).round(2)
     
     return merged_df
 
@@ -104,7 +118,7 @@ def apply_sheet_formatting(ws):
         for cell in row:
             cell.alignment = Alignment(horizontal="center", vertical="center")
             if isinstance(cell.value, (int, float)):
-                cell.number_format = '#,##0.00' if abs(cell.value) >= 1000 else '0.00'
+                cell.number_format = '#,##0' if isinstance(cell.value, int) else '0.00'
     
     # Auto-fit columns
     for col in ws.columns:
@@ -129,8 +143,8 @@ def apply_conditional_formatting(ws, last_row):
         col_idx = ord(col) - 64
         for row in range(2, last_row + 2):
             cell = ws.cell(row=row, column=col_idx)
-            if cell.value is not None:
-                value = cell.value
+            try:
+                value = float(cell.value) if cell.value is not None else 0
                 if value >= 10:
                     cell.fill = red_scale[10]
                 elif value >= 7:
@@ -138,6 +152,8 @@ def apply_conditional_formatting(ws, last_row):
                 elif value >= 3:
                     cell.fill = red_scale[3]
                 cell.font = Font(color="FFFFFF", bold=True)
+            except ValueError:
+                continue
 
 # ======================== CHART GENERATION ========================
 def create_charts(df, sheet_name):
@@ -214,11 +230,17 @@ def generate_workbook(processed_data):
         # Write data
         for _, row in df.iterrows():
             ws.append([
-                row['LEVEL'], row['Start Users'], row['Complete Users'],
-                row['Game Play Drop'], row['Popup Drop'], row['Total Level Drop'],
-                row['Retention %'], row.get('PLAY_TIME_AVG', 0),
-                row.get('HINT_USED_SUM', 0), row.get('SKIPPED_SUM', 0),
-                row.get('ATTEMPTS_SUM', 0)
+                row['LEVEL'], 
+                int(row['Start Users']),
+                int(row['Complete Users']),
+                float(row['Game Play Drop']),
+                float(row['Popup Drop']),
+                float(row['Total Level Drop']),
+                float(row['Retention %']),
+                float(row.get('PLAY_TIME_AVG', 0)),
+                int(row.get('HINT_USED_SUM', 0)),
+                int(row.get('SKIPPED_SUM', 0)),
+                int(row.get('ATTEMPTS_SUM', 0))
             ])
         
         # Apply formatting
@@ -247,8 +269,10 @@ def generate_workbook(processed_data):
             sum(df['Game Play Drop'] >= 3),
             sum(df['Popup Drop'] >= 3),
             sum(df['Total Level Drop'] >= 3),
-            df['LEVEL'].min(), df['Start Users'].max(),
-            df['LEVEL'].max(), df['Complete Users'].iloc[-1],
+            int(df['LEVEL'].min()), 
+            int(df['Start Users'].max()),
+            int(df['LEVEL'].max()), 
+            int(df['Complete Users'].iloc[-1]),
             f'=HYPERLINK("#{sheet_name}!A1", "🔍 Analyze {sheet_name}")'
         ]
         main_sheet.append(main_row)
