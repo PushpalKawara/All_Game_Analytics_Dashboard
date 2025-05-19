@@ -8,67 +8,56 @@ from openpyxl.drawing.image import Image as OpenpyxlImage
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 import re
-import tempfile
 
-# Initialize Streamlit app
+# Streamlit setup
 st.set_page_config(page_title="Game Analytics Tool", layout="wide")
-st.title("🎮ALL_GAMES_ANALYZER")
+st.title("🎮 ALL_GAMES_ANALYZER")
 
-# ======================== DATA PROCESSING FUNCTIONS ========================
+# --------------------- Helper Functions ---------------------
 def clean_level(level):
-    """Extract numeric value from LEVEL column"""
     if pd.isna(level):
         return 0
     return int(re.sub(r'\D', '', str(level)))
 
 def process_files(start_df, complete_df):
-    """Process and merge the two dataframes"""
-    # Clean and sort data
     for df in [start_df, complete_df]:
         df['LEVEL'] = df['LEVEL'].apply(clean_level)
         df.sort_values('LEVEL', inplace=True)
 
-    # Rename columns
     start_df = start_df.rename(columns={'USERS': 'START_USERS'})
     complete_df = complete_df.rename(columns={'USERS': 'COMPLETE_USERS'})
 
-    # Merge data
     merge_cols = ['GAME_ID', 'DIFFICULTY', 'LEVEL']
-    merged = pd.merge(start_df, complete_df, on=merge_cols, how='outer', suffixes=('_start', '_complete'))
+    merged = pd.merge(start_df, complete_df, on=merge_cols, how='outer')
 
-    # Select required columns
     keep_cols = ['GAME_ID', 'DIFFICULTY', 'LEVEL', 'START_USERS', 'COMPLETE_USERS',
                  'PLAY_TIME_AVG', 'HINT_USED_SUM', 'SKIPPED_SUM', 'ATTEMPTS_SUM']
-    merged = merged[keep_cols]
+    for col in keep_cols:
+        if col not in merged:
+            merged[col] = 0
 
-    # Calculate metrics
+    merged = merged[keep_cols]
     merged['GAME_PLAY_DROP'] = ((merged['START_USERS'] - merged['COMPLETE_USERS']) / merged['START_USERS'].replace(0, np.nan)) * 100
     merged['POPUP_DROP'] = ((merged['COMPLETE_USERS'] - merged['START_USERS'].shift(-1)) / merged['COMPLETE_USERS'].replace(0, np.nan)) * 100
     merged['TOTAL_LEVEL_DROP'] = ((merged['START_USERS'] - merged['START_USERS'].shift(-1)) / merged['START_USERS'].replace(0, np.nan)) * 100
     merged['RETENTION_%'] = (merged['START_USERS'] / merged['START_USERS'].max()) * 100
 
-    # Fill NaN values
-    merged.fillna({'START_USERS': 0, 'COMPLETE_USERS': 0}, inplace=True)
+    merged.fillna(0, inplace=True)
     return merged
 
-# ======================== CHART GENERATION ========================
 def create_charts(df, game_name):
-    """Generate matplotlib charts"""
     charts = {}
 
-    # Retention Chart
     fig1, ax1 = plt.subplots(figsize=(12, 4))
     ax1.plot(df['LEVEL'], df['RETENTION_%'], color='#4CAF50')
     ax1.set_title(f"{game_name} - RETENTION_%", fontsize=10)
     charts['retention'] = fig1
 
-    # Total Level Drop Chart
     fig2, ax2 = plt.subplots(figsize=(12, 4))
     ax2.bar(df['LEVEL'], df['TOTAL_LEVEL_DROP'], color='#F44336')
     ax2.set_title(f"{game_name} - TOTAL_LEVEL_DROP", fontsize=10)
     charts['total_drop'] = fig2
 
-    # Combined Drop Chart
     fig3, ax3 = plt.subplots(figsize=(12, 4))
     width = 0.35
     ax3.bar(df['LEVEL'] - width/2, df['GAME_PLAY_DROP'], width, label='GAME_PLAY_DROP')
@@ -79,118 +68,27 @@ def create_charts(df, game_name):
 
     return charts
 
-# ======================== CHART ADDITION TO EXCEL ========================
 def add_charts_to_excel(worksheet, charts):
-    """Add matplotlib charts to Excel worksheet as images"""
-    img_positions = {
-        'retention': 'M2',
-        'total_drop': 'N32',
-        'combined_drop': 'N65'
-    }
-
-    for chart_type in ['retention', 'total_drop', 'combined_drop']:
-        # Save chart to bytes buffer
+    img_positions = {'retention': 'M2', 'total_drop': 'N32', 'combined_drop': 'N65'}
+    for chart_type in img_positions:
         img_data = BytesIO()
         charts[chart_type].savefig(img_data, format='png', dpi=150, bbox_inches='tight')
         img_data.seek(0)
-
-        # Create image object
         img = OpenpyxlImage(img_data)
-
-        # Add image to worksheet
         worksheet.add_image(img, img_positions[chart_type])
-
-        # Close figure to prevent memory leaks
         plt.close(charts[chart_type])
 
-# ======================== EXCEL GENERATION ========================
-def generate_excel(processed_data):
-    """Create Excel workbook with formatted sheets"""
-    wb = Workbook()
-    wb.remove(wb.active)  # Remove default sheet
-
-    # Create MAIN_TAB sheet
-    main_sheet = wb.create_sheet("MAIN_TAB")
-    main_headers = ["Index", "Sheet Name", "GAME_PLAY_DROP_Count", "POPUP_DROP_Count",
-                    "TOTAL_LEVEL_DROP_Count", "LEVEL_Start", "USERS_starts",
-                    "LEVEL_End", "USERS_END", "Link to Sheet"]
-    main_sheet.append(main_headers)
-
-    # Format main sheet headers
-    for col in main_sheet[1]:
-        col.font = Font(bold=True, color="FFFFFF")
-        col.fill = PatternFill("solid", fgColor="4F81BD")
-
-    # Process each game variant
-    for idx, (game_id, df) in enumerate(processed_data.items(), start=1):
-        sheet_name = f"{game_id}_{df['DIFFICULTY'].iloc[0]}"[:31]
-        # sheet_name = f"{game_id}"[:31]
-        ws = wb.create_sheet(sheet_name)
-
-        # Add backlink to MAIN_TAB
-        ws['A1'] = '=HYPERLINK("#MAIN_TAB!A1", "Back to Main")'
-        ws['A1'].font = Font(color="0000FF", underline="single")
-
-        # Prepare data for sheet
-        headers = ["Level", "START_USERS", "COMPLETE_USERS", "GAME_PLAY_DROP",
-                   "POPUP_DROP", "TOTAL_LEVEL_DROP", "RETENTION_%",
-                   "PLAY_TIME_AVG", "HINT_USED_SUM", "SKIPPED_SUM", "ATTEMPTS_SUM"]
-        ws.append(headers)
-
-        # Add data rows
-        for _, row in df.iterrows():
-            ws.append([
-                row['LEVEL'], row['START_USERS'], row['COMPLETE_USERS'],
-                row['GAME_PLAY_DROP'], row['POPUP_DROP'], row['TOTAL_LEVEL_DROP'],
-                row['RETENTION_%'], row['PLAY_TIME_AVG', 0], row['HINT_USED_SUM', 0],
-                row['SKIPPED_SUM', 0], row['ATTEMPTS_SUM', 0]
-            ])
-
-        # Add charts
-        charts = create_charts(df, sheet_name)
-        add_charts_to_excel(ws, charts)
-
-        # Formatting
-        apply_sheet_formatting(ws)
-        apply_conditional_formatting(ws, df.shape[0])
-
-        # Update MAIN_TAB
-        main_row = [
-            idx, sheet_name,
-            sum(df['GAME_PLAY_DROP'] >= ( 0.03)),
-            sum(df['POPUP_DROP'] >= ( 0.03)),
-            sum(df['TOTAL_LEVEL_DROP'] >= ( 0.03)),
-            df['LEVEL'].min(), df['START_USERS'].max(),
-            df['LEVEL'].max(), df['COMPLETE_USERS'].iloc[-1],
-            f'=HYPERLINK("#{sheet_name}!A1", " Click to analyze")'
-        ]
-        main_sheet.append(main_row)
-
-    # Format main sheet
-    for col in range(1, len(main_headers)+1):
-        main_sheet.column_dimensions[get_column_letter(col)].width = 18
-
-    return wb
-
 def apply_sheet_formatting(sheet):
-    """Apply consistent formatting to sheets"""
-    # Freeze header row
     sheet.freeze_panes = 'A1'
-
-    # Format headers
-    for cell in sheet[1]:  # Data headers start at row 1
+    for cell in sheet[1]:
         cell.font = Font(bold=True)
         cell.fill = PatternFill("solid", fgColor="DDDDDD")
-
-    # Auto-fit columns
     for col in sheet.columns:
-        max_length = max(len(str(cell.value)) for cell in col)
-        sheet.column_dimensions[get_column_letter(col[0].column)].width = max_length + 2
+        max_len = max(len(str(cell.value)) if cell.value else 0 for cell in col)
+        sheet.column_dimensions[get_column_letter(col[0].column)].width = max_len + 2
 
 def apply_conditional_formatting(sheet, num_rows):
-    """Apply color scale formatting to drop columns"""
-    drop_columns = {'D', 'E', 'F'}  # Game Play Drop, Popup Drop, Total Level Drop
-
+    drop_columns = {'D', 'E', 'F'}
     red_scale = {
         '3': PatternFill(start_color='FFC7CE', end_color='FFC7CE', fill_type='solid'),
         '7': PatternFill(start_color='FF9999', end_color='FF9999', fill_type='solid'),
@@ -199,106 +97,105 @@ def apply_conditional_formatting(sheet, num_rows):
 
     for row in sheet.iter_rows(min_row=2):
         for cell in row:
-            if cell.column_letter in drop_columns and cell.value is not None:
-                value = cell.value
-                if value >= 10:
+            if cell.column_letter in drop_columns and isinstance(cell.value, (int, float)):
+                val = cell.value
+                if val >= 10:
                     cell.fill = red_scale['10']
-                elif value >= 7:
+                elif val >= 7:
                     cell.fill = red_scale['7']
-                elif value >= 3:
+                elif val >= 3:
                     cell.fill = red_scale['3']
                 cell.font = Font(color="FFFFFF")
 
-
-
-    # # Highlight drop columns only in game sheets
-    # if sheet.title != "MAIN_TAB":
-    #         for row in sheet.iter_rows(min_row=2):
-    #             for cell in row:
-    #                 if cell.column_letter in drop_columns and isinstance(cell.value, (int, float)):
-    #                     value = cell.value
-    #                     if value >= 10:
-    #                         cell.fill = PatternFill("solid", fgColor="7B241C")
-    #                         cell.font = Font(color="FFFFFF")
-    #                     elif value >= 7:
-    #                         cell.fill = PatternFill("solid", fgColor="C0392B")
-    #                         cell.font = Font(color="FFFFFF")
-    #                     elif value >= 3:
-    #                         cell.fill = PatternFill("solid", fgColor="F1948A")
-    #                         cell.font = Font(color="FFFFFF")
-
-
-
-
-    # Auto-fit columns
-    for col in sheet.columns:
-        max_length = 0
-        column_letter = get_column_letter(col[0].column)
-        for cell in col:
-                cell_value = str(cell.value) if cell.value is not None else ""
-                if cell_value.startswith('=HYPERLINK('):
-                    match = re.search(r',\s*"([^"]+)"\)', cell_value)
-                    if match:
-                        cell_length = len(match.group(1))
-                    else:
-                        cell_length = len(cell_value)
-                else:
-                    cell_length = len(cell_value)
-                if cell_length > max_length:
-                    max_length = cell_length
-        adjusted_width = (max_length + 2)
-        sheet.column_dimensions[column_letter].width = adjusted_width
-
-
-     # Center alignment for all cells
     for row in sheet.iter_rows():
         for cell in row:
             cell.alignment = Alignment(horizontal='center', vertical='center')
 
-# ======================== STREAMLIT UI ========================
+def generate_excel(processed_data):
+    wb = Workbook()
+    wb.remove(wb.active)
+    main_sheet = wb.create_sheet("MAIN_TAB")
+    main_headers = ["Index", "Sheet Name", "GAME_PLAY_DROP_Count", "POPUP_DROP_Count",
+                    "TOTAL_LEVEL_DROP_Count", "LEVEL_Start", "USERS_starts",
+                    "LEVEL_End", "USERS_END", "Link to Sheet"]
+    main_sheet.append(main_headers)
+    for col in main_sheet[1]:
+        col.font = Font(bold=True, color="FFFFFF")
+        col.fill = PatternFill("solid", fgColor="4F81BD")
+
+    for idx, (game_id, df) in enumerate(processed_data.items(), start=1):
+        sheet_name = f"{game_id}_{df['DIFFICULTY'].iloc[0]}"[:31]
+        ws = wb.create_sheet(sheet_name)
+        ws['A1'] = '=HYPERLINK("#MAIN_TAB!A1", "Back to Main")'
+        ws['A1'].font = Font(color="0000FF", underline="single")
+
+        headers = ["Level", "START_USERS", "COMPLETE_USERS", "GAME_PLAY_DROP", "POPUP_DROP",
+                   "TOTAL_LEVEL_DROP", "RETENTION_%", "PLAY_TIME_AVG", "HINT_USED_SUM",
+                   "SKIPPED_SUM", "ATTEMPTS_SUM"]
+        ws.append(headers)
+
+        for _, row in df.iterrows():
+            ws.append([
+                row['LEVEL'], row['START_USERS'], row['COMPLETE_USERS'],
+                row['GAME_PLAY_DROP'], row['POPUP_DROP'], row['TOTAL_LEVEL_DROP'],
+                row['RETENTION_%'], row.get('PLAY_TIME_AVG', 0), row.get('HINT_USED_SUM', 0),
+                row.get('SKIPPED_SUM', 0), row.get('ATTEMPTS_SUM', 0)
+            ])
+
+        charts = create_charts(df, sheet_name)
+        add_charts_to_excel(ws, charts)
+        apply_sheet_formatting(ws)
+        apply_conditional_formatting(ws, df.shape[0])
+
+        main_row = [
+            idx, sheet_name,
+            sum(df['GAME_PLAY_DROP'] >= 0.03),
+            sum(df['POPUP_DROP'] >= 0.03),
+            sum(df['TOTAL_LEVEL_DROP'] >= 0.03),
+            df['LEVEL'].min(), df['START_USERS'].max(),
+            df['LEVEL'].max(), df['COMPLETE_USERS'].iloc[-1],
+            f'=HYPERLINK("#{sheet_name}!A1", " Click to analyze")'
+        ]
+        main_sheet.append(main_row)
+
+    for col in range(1, len(main_headers)+1):
+        main_sheet.column_dimensions[get_column_letter(col)].width = 18
+
+    return wb
+
+# --------------------- Streamlit UI ---------------------
 def main():
-    st.sidebar.header("Upload Files")
-    start_file = st.sidebar.file_uploader("LEVEL_START.csv", type="csv")
-    complete_file = st.sidebar.file_uploader("LEVEL_COMPLETE.csv", type="csv")
+    st.sidebar.header("Upload CSV Files")
 
-    if start_file and complete_file:
-        with st.spinner("Processing data..."):
-            try:
-                # Read and process data
-                start_df = pd.read_csv(start_file)
-                complete_df = pd.read_csv(complete_file)
-                merged = process_files(start_df, complete_df)
+    uploaded_start = st.sidebar.file_uploader("Upload START Data CSV", type=["csv"])
+    uploaded_complete = st.sidebar.file_uploader("Upload COMPLETE Data CSV", type=["csv"])
 
-                # Group by game and difficulty
-                processed_data = {}
-                for (game_id, difficulty), group in merged.groupby(['GAME_ID', 'DIFFICULTY']):
-                    # processed_data[f"{game_id}_{difficulty}"] = group
-                    processed_data[f"{game_id}"] = group
+    if uploaded_start and uploaded_complete:
+        start_df = pd.read_csv(uploaded_start)
+        complete_df = pd.read_csv(uploaded_complete)
 
-                # Generate Excel file
-                wb = generate_excel(processed_data)
+        if 'GAME_ID' in start_df and 'GAME_ID' in complete_df:
+            processed_data = {}
+            game_ids = set(start_df['GAME_ID'].unique()) & set(complete_df['GAME_ID'].unique())
 
-                # Save to bytes buffer
-                with tempfile.NamedTemporaryFile(delete=False) as tmp:
-                    wb.save(tmp.name)
-                    with open(tmp.name, "rb") as f:
-                        excel_bytes = f.read()
+            for gid in game_ids:
+                start_subset = start_df[start_df['GAME_ID'] == gid]
+                complete_subset = complete_df[complete_df['GAME_ID'] == gid]
+                processed_df = process_files(start_subset, complete_subset)
+                processed_data[gid] = processed_df
 
-                # Download button
-                st.success("Processing complete!")
-                st.download_button(
-                    label="📥 Download Consolidated Report",
-                    data=excel_bytes,
-                    file_name="Game_Analytics_Report.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                )
+            wb = generate_excel(processed_data)
+            buffer = BytesIO()
+            wb.save(buffer)
+            buffer.seek(0)
 
-                # Show preview
-                with st.expander("Preview Processed Data"):
-                    st.dataframe(merged.head(20))
-
-            except Exception as e:
-                st.error(f"Error processing files: {str(e)}")
+            st.success("Excel report generated successfully!")
+            st.download_button(label="📥 Download Excel Report",
+                               data=buffer,
+                               file_name="Game_Analytics_Report.xlsx",
+                               mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        else:
+            st.error("Both CSVs must include 'GAME_ID' column.")
 
 if __name__ == "__main__":
     main()
