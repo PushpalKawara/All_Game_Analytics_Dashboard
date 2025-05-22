@@ -37,10 +37,10 @@ def process_files(start_df, complete_df):
     game_col = get_column(start_df, ['GAME_ID', 'CATEGORY', 'Game_name'])
     diff_col = get_column(start_df, ['DIFFICULTY', 'mode'])
 
-    playtime_col = get_column(start_df, ['PLAY_TIME_AVG', 'PLAYTIME', 'PLAYTIME_AVG', 'playtime_avg'])
-    hint_col = get_column(start_df, ['HINT_USED_SUM', 'HINT_USED', 'HINT'])
-    skipped_col = get_column(start_df, ['SKIPPED_SUM', 'SKIPPED', 'SKIP'])
-    attempts_col = get_column(start_df, ['ATTEMPTS_SUM', 'ATTEMPTS', 'TRY_COUNT'])
+    playtime_col = get_column(complete_df, ['PLAY_TIME_AVG', 'PLAYTIME', 'PLAYTIME_AVG', 'playtime_avg'])
+    hint_col = get_column(complete_df, ['HINT_USED_SUM', 'HINT_USED', 'HINT'])
+    skipped_col = get_column(complete_df, ['SKIPPED_SUM', 'SKIPPED', 'SKIP'])
+    attempts_col = get_column(complete_df, ['ATTEMPTS_SUM', 'ATTEMPTS', 'TRY_COUNT'])
 
     # Clean LEVELs
     for df in [start_df, complete_df]:
