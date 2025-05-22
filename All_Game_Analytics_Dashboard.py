@@ -269,9 +269,9 @@ def apply_sheet_formatting(sheet):
     # Special formatting for A1 only in game sheets (not main tab)
     if sheet.title != "MAIN_TAB":
         a1_cell = sheet['A1']
-        a1_cell.font = Font(color="0000FF", underline="single", bold=True, size=14)
+        a1_cell.font = Font(color="0000FF", underline="single", bold=True, size=11)
         a1_cell.fill = PatternFill("solid", fgColor="FFFF00")
-        sheet.column_dimensions['A'].width = 10
+        sheet.column_dimensions['A'].width = 14
 
     # Auto-fit columns for other columns
     for col in sheet.columns:
