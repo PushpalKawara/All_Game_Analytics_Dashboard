@@ -115,9 +115,14 @@ def generate_excel(processed_data):
                     "LEVEL_End", "USERS_END", "Link to Sheet"]
     main_sheet.append(main_headers)
 
-    for cell in main_sheet[row_ptr]:
-          cell.alignment = Alignment(horizontal='center', vertical='center')
-    row_ptr += 1
+    # for cell in main_sheet[row_ptr]:
+    #       cell.alignment = Alignment(horizontal='center', vertical='center')
+    # row_ptr += 1
+    row_ptr = 2
+    while row_ptr <= main_sheet.max_row:  # or any row number you want
+       for cell in main_sheet[row_ptr]:
+         cell.alignment = Alignment(horizontal='center', vertical='center')
+       row_ptr += 1
 
     # Format main sheet headers
     for col in main_sheet[1]:
