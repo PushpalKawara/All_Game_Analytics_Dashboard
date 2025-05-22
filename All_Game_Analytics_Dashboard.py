@@ -247,6 +247,12 @@ def generate_excel(processed_data):
                     "LEVEL_End", "USERS_END", "Link to Sheet"]
     main_sheet.append(main_headers)
 
+    # Format main sheet headers
+    for col in main_sheet[1]:
+        col.font = Font(bold=True, color="FFFFFF")
+        col.fill = PatternFill("solid", fgColor="4F81BD")
+        col.alignment = Alignment(horizontal='center', vertical='center')
+
     main_rows = []  # List to collect main rows before sorting
 
     # Process each game variant
@@ -254,39 +260,76 @@ def generate_excel(processed_data):
         sheet_name = f"{game_id}_{df['DIFFICULTY'].iloc[0]}"[:31]
         ws = wb.create_sheet(sheet_name)
 
-        # ... [rest of the sheet processing code remains unchanged] ...
+        # Create sheet headers with hyperlink
+        headers = ["=HYPERLINK(\"#MAIN_TAB!A1\", \"Back to Main\")", "Start Users", "Complete Users",
+                   "Game Play Drop", "Popup Drop", "Total Level Drop", "Retention %",
+                   "PLAY_TIME_AVG", "HINT_USED_SUM", "SKIPPED_SUM", "ATTEMPTS_SUM"]
+        ws.append(headers)
 
-        # Update MAIN_TAB (collect rows instead of appending directly)
+        # Format hyperlink cell
+        ws['A1'].font = Font(color="0000FF", underline="single", bold=True)
+
+        # Add data rows
+        for _, row in df.iterrows():
+            values = [
+                row['LEVEL'],
+                row['Start Users'] if not pd.isna(row['Start Users']) else 0,
+                row['Complete Users'] if not pd.isna(row['Complete Users']) else 0,
+                round(row['Game Play Drop'] if not pd.isna(row['Game Play Drop']) else 0, 2),
+                round(row['Popup Drop'] if not pd.isna(row['Popup Drop']) else 0, 2),
+                round(row['Total Level Drop'] if not pd.isna(row['Total Level Drop']) else 0, 2),
+                round(row['Retention %'] if not pd.isna(row['Retention %']) else 0, 2),
+                round(row['PLAY_TIME_AVG'] if not pd.isna(row['PLAY_TIME_AVG']) else 0, 2),
+                round(row['HINT_USED_SUM'] if not pd.isna(row['HINT_USED_SUM']) else 0, 2),
+                round(row['SKIPPED_SUM'] if not pd.isna(row['SKIPPED_SUM']) else 0, 2),
+                round(row['ATTEMPTS_SUM'] if not pd.isna(row['ATTEMPTS_SUM']) else 0, 2),
+            ]
+            ws.append([val if val != "" else "0" for val in values])
+
+        # Add charts
+        charts = create_charts(df, sheet_name)
+        add_charts_to_excel(ws, charts)
+
+        # Apply formatting
+        apply_sheet_formatting(ws)
+        apply_conditional_formatting(ws, df.shape[0])
+
+        # Collect main tab data for sorting
         main_row = [
-            idx, sheet_name,
+            idx,
+            sheet_name,
             sum(df['Game Play Drop'] >= (df['Start Users'] * 0.03)),
             sum(df['Popup Drop'] >= (df['Start Users'] * 0.03)),
             sum(df['Total Level Drop'] >= (df['Start Users'] * 0.03)),
-            df['LEVEL'].min(), df['Start Users'].max(),
-            df['LEVEL'].max(), df['Complete Users'].iloc[-1],
+            df['LEVEL'].min(),
+            df['Start Users'].max(),
+            df['LEVEL'].max(),
+            df['Complete Users'].iloc[-1],
             f'=HYPERLINK("#{sheet_name}!A1", "View")'
         ]
         main_rows.append(main_row)
 
-    # Sort main rows by index (ascending order)
+    # Sort main rows by index number before adding to sheet
     main_rows.sort(key=lambda x: x[0])
 
-    # Append sorted rows to main sheet
+    # Add sorted rows to main sheet
     for row in main_rows:
         main_sheet.append(row)
 
-    # Format main sheet
-    for col in range(1, len(main_headers)+1):
-        main_sheet.column_dimensions[get_column_letter(col)].width = 18
-
-    # Apply alignment to all cells in main sheet
+    # Apply formatting to all cells in main sheet
     for row in main_sheet.iter_rows():
         for cell in row:
             cell.alignment = Alignment(horizontal='center', vertical='center')
+            if cell.row == 1:  # Keep header formatting
+                cell.font = Font(bold=True, color="FFFFFF")
+                cell.fill = PatternFill("solid", fgColor="4F81BD")
+
+    # Set column widths for main sheet
+    column_widths = [8, 25, 20, 18, 20, 12, 15, 12, 15, 15]
+    for i, width in enumerate(column_widths, start=1):
+        main_sheet.column_dimensions[get_column_letter(i)].width = width
 
     return wb
-
-
 
 # ======================== REMAINING FUNCTIONS AND UI (UNCHANGED) ========================
 # [Keep the apply_sheet_formatting, apply_conditional_formatting, and main() functions
