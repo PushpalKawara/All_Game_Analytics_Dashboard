@@ -115,10 +115,6 @@ def generate_excel(processed_data):
                     "LEVEL_End", "USERS_END", "Link to Sheet"]
     main_sheet.append(main_headers)
 
-    # row_ptr = 2
-    # for cell in main_sheet[row_ptr]:
-    #       cell.alignment = Alignment(horizontal='center', vertical='center')
-    # row_ptr += 1
 
     row_ptr = 2
     while row_ptr <= main_sheet.max_row:  # or any row number you want
@@ -136,15 +132,6 @@ def generate_excel(processed_data):
         sheet_name = f"{game_id}_{df['DIFFICULTY'].iloc[0]}"[:31]
         ws = wb.create_sheet(sheet_name)
 
-        # # Add backlink to MAIN_TAB
-        # ws['A1'] = '=HYPERLINK("#MAIN_TAB!A1", "Back to Main")'
-        # ws['A1'].font = Font(color="0000FF", underline="single")
-
-        # # Prepare data for sheet
-        # headers = ["Level", "Start Users", "Complete Users", "Game Play Drop",
-        #            "Popup Drop", "Total Level Drop", "Retention %",
-        #            "PLAY_TIME_AVG", "HINT_USED_SUM", "SKIPPED_SUM", "ATTEMPTS_SUM"]
-        # ws.append(headers)
 
         headers = ["=HYPERLINK(\"#MAIN_TAB!A1\", \"Back to Main\")", "Start Users", "Complete Users",
                    "Game Play Drop", "Popup Drop", "Total Level Drop", "Retention %",
@@ -215,7 +202,7 @@ def apply_sheet_formatting(sheet):
     sheet.freeze_panes = 'A1'
 
     # Format headers
-    for cell in sheet[2]:  # Data headers start at row 1
+    for cell in sheet[1]:  # Data headers start at row 1
         cell.font = Font(bold=True)
         cell.fill = PatternFill("solid", fgColor="DDDDDD")
 
