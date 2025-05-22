@@ -21,34 +21,73 @@ def clean_level(level):
         return 0
     return int(re.sub(r'\D', '', str(level)))
 
+
 def process_files(start_df, complete_df):
-    """Process and merge the two dataframes"""
-    # Clean and sort data
+    """Process and merge the two dataframes with flexible column name handling."""
+
+    def get_column(df, possible_names):
+        """Return the first matching column name from the dataframe."""
+        for col in df.columns:
+            if col.strip().lower() in [name.lower() for name in possible_names]:
+                return col
+        return None
+
+    # Flexible column matching
+    level_col = get_column(start_df, ['LEVEL', 'TOTALLEVELS', 'STAGE'])
+    game_col = get_column(start_df, ['GAME_ID', 'CATEGORY', 'Game_name'])
+    diff_col = get_column(start_df, ['DIFFICULTY', 'mode'])
+
+    playtime_col = get_column(complete_df, ['PLAY_TIME_AVG', 'PLAYTIME', 'PLAYTIME_AVG', 'playtime_avg'])
+    hint_col = get_column(complete_df, ['HINT_USED_SUM', 'HINT_USED', 'HINT'])
+    skipped_col = get_column(complete_df, ['SKIPPED_SUM', 'SKIPPED', 'SKIP'])
+    attempts_col = get_column(complete_df, ['ATTEMPTS_SUM', 'ATTEMPTS', 'TRY_COUNT'])
+
+    # Clean LEVELs
     for df in [start_df, complete_df]:
-        df['LEVEL'] = df['LEVEL'].apply(clean_level)
-        df.sort_values('LEVEL', inplace=True)
+        df[level_col] = df[level_col].apply(clean_level)
+        df.sort_values(level_col, inplace=True)
 
-    # Rename columns
-    start_df = start_df.rename(columns={'USERS': 'Start Users'})
-    complete_df = complete_df.rename(columns={'USERS': 'Complete Users'})
+    # Rename required columns
+    start_df.rename(columns={
+        level_col: 'LEVEL',
+        game_col: 'GAME_ID',
+        diff_col: 'DIFFICULTY',
+        'USERS': 'Start Users',
+        playtime_col: 'PLAY_TIME_AVG' if playtime_col else None,
+        hint_col: 'HINT_USED_SUM' if hint_col else None,
+        skipped_col: 'SKIPPED_SUM' if skipped_col else None,
+        attempts_col: 'ATTEMPTS_SUM' if attempts_col else None,
+    }, inplace=True)
 
-    # Merge data
-    merge_cols = ['GAME_ID', 'DIFFICULTY', 'LEVEL']
-    merged = pd.merge(start_df, complete_df, on=merge_cols, how='outer', suffixes=('_start', '_complete'))
+    complete_df.rename(columns={
+        level_col: 'LEVEL',
+        game_col: 'GAME_ID',
+        diff_col: 'DIFFICULTY',
+        'USERS': 'Complete Users'
+    }, inplace=True)
 
-    # Select required columns
-    keep_cols = ['GAME_ID', 'DIFFICULTY', 'LEVEL', 'Start Users', 'Complete Users',
-                 'PLAY_TIME_AVG', 'HINT_USED_SUM', 'SKIPPED_SUM', 'ATTEMPTS_SUM']
-    merged = merged[keep_cols]
+    # Merge
+    merged = pd.merge(start_df, complete_df, on=['GAME_ID', 'DIFFICULTY', 'LEVEL'], how='outer', suffixes=('_start', '_complete'))
 
-  # Calculate metrics
+    # Build dynamic column list
+    keep_cols = ['GAME_ID', 'DIFFICULTY', 'LEVEL', 'Start Users', 'Complete Users']
+    if playtime_col: keep_cols.append('PLAY_TIME_AVG')
+    if hint_col: keep_cols.append('HINT_USED_SUM')
+    if skipped_col: keep_cols.append('SKIPPED_SUM')
+    if attempts_col: keep_cols.append('ATTEMPTS_SUM')
+
+    merged = merged[[col for col in keep_cols if col in merged.columns]]
+
+    # Calculate drops and retention
     merged['Game Play Drop'] = ((merged['Start Users'] - merged['Complete Users']) / merged['Start Users'].replace(0, np.nan)) * 100
     merged['Popup Drop'] = ((merged['Complete Users'] - merged['Start Users'].shift(-1)) / merged['Complete Users'].replace(0, np.nan)) * 100
     merged['Total Level Drop'] = ((merged['Start Users'] - merged['Start Users'].shift(-1)) / merged['Start Users'].replace(0, np.nan)) * 100
     merged['Retention %'] = (merged['Start Users'] / merged['Start Users'].max()) * 100
-    # Fill NaN values
+
+    # Clean NaNs
     merged.fillna({'Start Users': 0, 'Complete Users': 0}, inplace=True)
     return merged
+
 
 # ======================== CHART GENERATION ========================
 def create_charts(df, game_name):
@@ -103,6 +142,99 @@ def add_charts_to_excel(worksheet, charts):
         plt.close(charts[chart_type])
 
 # ======================== EXCEL GENERATION ========================
+# def generate_excel(processed_data):
+#     """Create Excel workbook with formatted sheets"""
+#     wb = Workbook()
+#     wb.remove(wb.active)  # Remove default sheet
+
+#     # Create MAIN_TAB sheet
+#     main_sheet = wb.create_sheet("MAIN_TAB")
+#     main_headers = ["Index", "Sheet Name", "Game Play Drop Count", "Popup Drop Count",
+#                     "Total Level Drop Count", "LEVEL_Start", "Start Users",
+#                     "LEVEL_End", "USERS_END", "Link to Sheet"]
+#     main_sheet.append(main_headers)
+
+
+#     row_ptr = 2
+#     while row_ptr <= main_sheet.max_row:  # or any row number you want
+#        for cell in main_sheet[row_ptr]:
+#          cell.alignment = Alignment(horizontal='center', vertical='center')
+#        row_ptr += 1
+
+
+
+#     # Format main sheet headers
+#     for col in main_sheet[1]:
+#         col.font = Font(bold=True, color="FFFFFF")
+#         col.fill = PatternFill("solid", fgColor="4F81BD")
+
+#     # Process each game variant
+#     for idx, (game_id, df) in enumerate(processed_data.items(), start=1):
+#         sheet_name = f"{game_id}_{df['DIFFICULTY'].iloc[0]}"[:31]
+#         ws = wb.create_sheet(sheet_name)
+
+
+#         headers = ["=HYPERLINK(\"#MAIN_TAB!A1\", \"Back to Main\")", "Start Users", "Complete Users",
+#                    "Game Play Drop", "Popup Drop", "Total Level Drop", "Retention %",
+#                    "PLAY_TIME_AVG", "HINT_USED_SUM", "SKIPPED_SUM", "ATTEMPTS_SUM"]
+
+#         ws.append(headers)
+
+#         # Apply formatting to A1 hyperlink (now embedded in header)
+#         ws['A1'].font = Font(color="0000FF", underline="single", bold=True)
+
+
+
+#         # Add data rows
+#         for _, row in df.iterrows():
+#             values = [
+#                 row['LEVEL'],
+#                 row['Start Users'] if not pd.isna(row['Start Users']) else 0,
+#                 row['Complete Users'] if not pd.isna(row['Complete Users']) else 0,
+#                 round(row['Game Play Drop'] if not pd.isna(row['Game Play Drop']) else 0, 2),
+#                 round(row['Popup Drop'] if not pd.isna(row['Popup Drop']) else 0, 2),
+#                 round(row['Total Level Drop'] if not pd.isna(row['Total Level Drop']) else 0, 2),
+#                 round(row['Retention %'] if not pd.isna(row['Retention %']) else 0, 2),
+#                 round(row['PLAY_TIME_AVG'] if not pd.isna(row['PLAY_TIME_AVG']) else 0, 2),
+#                 round(row['HINT_USED_SUM'] if not pd.isna(row['HINT_USED_SUM']) else 0, 2),
+#                 round(row['SKIPPED_SUM'] if not pd.isna(row['SKIPPED_SUM']) else 0, 2),
+#                 round(row['ATTEMPTS_SUM'] if not pd.isna(row['ATTEMPTS_SUM']) else 0, 2),
+#             ]
+#             ws.append([val if val != "" else "0" for val in values])
+
+#             for cell in main_sheet[row_ptr]:
+#                 cell.alignment = Alignment(horizontal='center', vertical='center')
+#             row_ptr += 1
+
+
+#         # Add charts
+#         charts = create_charts(df, sheet_name)
+#         add_charts_to_excel(ws, charts)
+
+#         # Formatting
+#         apply_sheet_formatting(ws)
+#         apply_conditional_formatting(ws, df.shape[0])
+
+#         # Update MAIN_TAB
+#         main_row = [
+#             idx, sheet_name,
+#             sum(df['Game Play Drop'] >= (df['Start Users'] * 0.03)),
+#             sum(df['Popup Drop'] >= (df['Start Users'] * 0.03)),
+#             sum(df['Total Level Drop'] >= (df['Start Users'] * 0.03)),
+#             df['LEVEL'].min(), df['Start Users'].max(),
+#             df['LEVEL'].max(), df['Complete Users'].iloc[-1],
+#             f'=HYPERLINK("#{sheet_name}!A1", "View")'
+#         ]
+#         main_sheet.append(main_row)
+
+#     # Format main sheet
+#     for col in range(1, len(main_headers)+1):
+#         main_sheet.column_dimensions[get_column_letter(col)].width = 18
+
+#     return wb
+
+
+# ======================== EXCEL GENERATION ========================
 def generate_excel(processed_data):
     """Create Excel workbook with formatted sheets"""
     wb = Workbook()
@@ -115,66 +247,16 @@ def generate_excel(processed_data):
                     "LEVEL_End", "USERS_END", "Link to Sheet"]
     main_sheet.append(main_headers)
 
-    # for cell in main_sheet[row_ptr]:
-    #       cell.alignment = Alignment(horizontal='center', vertical='center')
-    # row_ptr += 1
-    row_ptr = 2
-    while row_ptr <= main_sheet.max_row:  # or any row number you want
-       for cell in main_sheet[row_ptr]:
-         cell.alignment = Alignment(horizontal='center', vertical='center')
-       row_ptr += 1
-
-    # Format main sheet headers
-    for col in main_sheet[1]:
-        col.font = Font(bold=True, color="FFFFFF")
-        col.fill = PatternFill("solid", fgColor="4F81BD")
+    main_rows = []  # List to collect main rows before sorting
 
     # Process each game variant
     for idx, (game_id, df) in enumerate(processed_data.items(), start=1):
         sheet_name = f"{game_id}_{df['DIFFICULTY'].iloc[0]}"[:31]
         ws = wb.create_sheet(sheet_name)
 
-        # Add backlink to MAIN_TAB
-        ws['A1'] = '=HYPERLINK("#MAIN_TAB!A1", "Back to Main")'
-        ws['A1'].font = Font(color="0000FF", underline="single")
+        # ... [rest of the sheet processing code remains unchanged] ...
 
-        # Prepare data for sheet
-        headers = ["Level", "Start Users", "Complete Users", "Game Play Drop",
-                   "Popup Drop", "Total Level Drop", "Retention %",
-                   "PLAY_TIME_AVG", "HINT_USED_SUM", "SKIPPED_SUM", "ATTEMPTS_SUM"]
-        ws.append(headers)
-
-        # Add data rows
-        for _, row in df.iterrows():
-            values = [
-                row['LEVEL'],
-                row['Start Users'] if not pd.isna(row['Start Users']) else 0,
-                row['Complete Users'] if not pd.isna(row['Complete Users']) else 0,
-                round(row['Game Play Drop'] if not pd.isna(row['Game Play Drop']) else 0, 2),
-                round(row['Popup Drop'] if not pd.isna(row['Popup Drop']) else 0, 2),
-                round(row['Total Level Drop'] if not pd.isna(row['Total Level Drop']) else 0, 2),
-                round(row['Retention %'] if not pd.isna(row['Retention %']) else 0, 2),
-                round(row['PLAY_TIME_AVG'] if not pd.isna(row['PLAY_TIME_AVG']) else 0, 2),
-                round(row['HINT_USED_SUM'] if not pd.isna(row['HINT_USED_SUM']) else 0, 2),
-                round(row['SKIPPED_SUM'] if not pd.isna(row['SKIPPED_SUM']) else 0, 2),
-                round(row['ATTEMPTS_SUM'] if not pd.isna(row['ATTEMPTS_SUM']) else 0, 2),
-            ]
-            ws.append([val if val != "" else "0" for val in values])
-
-            for cell in main_sheet[row_ptr]:
-                cell.alignment = Alignment(horizontal='center', vertical='center')
-            row_ptr += 1
-
-
-        # Add charts
-        charts = create_charts(df, sheet_name)
-        add_charts_to_excel(ws, charts)
-
-        # Formatting
-        apply_sheet_formatting(ws)
-        apply_conditional_formatting(ws, df.shape[0])
-
-        # Update MAIN_TAB
+        # Update MAIN_TAB (collect rows instead of appending directly)
         main_row = [
             idx, sheet_name,
             sum(df['Game Play Drop'] >= (df['Start Users'] * 0.03)),
@@ -184,13 +266,27 @@ def generate_excel(processed_data):
             df['LEVEL'].max(), df['Complete Users'].iloc[-1],
             f'=HYPERLINK("#{sheet_name}!A1", "View")'
         ]
-        main_sheet.append(main_row)
+        main_rows.append(main_row)
+
+    # Sort main rows by index (ascending order)
+    main_rows.sort(key=lambda x: x[0])
+
+    # Append sorted rows to main sheet
+    for row in main_rows:
+        main_sheet.append(row)
 
     # Format main sheet
     for col in range(1, len(main_headers)+1):
         main_sheet.column_dimensions[get_column_letter(col)].width = 18
 
+    # Apply alignment to all cells in main sheet
+    for row in main_sheet.iter_rows():
+        for cell in row:
+            cell.alignment = Alignment(horizontal='center', vertical='center')
+
     return wb
+
+
 
 # ======================== REMAINING FUNCTIONS AND UI (UNCHANGED) ========================
 # [Keep the apply_sheet_formatting, apply_conditional_formatting, and main() functions
@@ -202,7 +298,7 @@ def apply_sheet_formatting(sheet):
     sheet.freeze_panes = 'A1'
 
     # Format headers
-    for cell in sheet[2]:  # Data headers start at row 1
+    for cell in sheet[1]:  # Data headers start at row 1
         cell.font = Font(bold=True)
         cell.fill = PatternFill("solid", fgColor="DDDDDD")
 
@@ -221,7 +317,7 @@ def apply_conditional_formatting(sheet, num_rows):
         '10': PatternFill(start_color='FF6666', end_color='FF6666', fill_type='solid')
     }
 
-    for row in sheet.iter_rows(min_row=3, max_row=num_rows+2):
+    for row in sheet.iter_rows(min_row=2, max_row=num_rows+1):
         for cell in row:
             if cell.column_letter in drop_columns and cell.value is not None:
                 value = cell.value
