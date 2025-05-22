@@ -82,7 +82,7 @@ def process_files(start_df, complete_df):
     # Calculate drops and retention
     merged['Game Play Drop'] = ((merged['Start Users'] - merged['Complete Users']) / merged['Start Users'].replace(0, np.nan)) * 100
     merged['Popup Drop'] = ((merged['Complete Users'] - merged['Start Users'].shift(-1)) / merged['Complete Users'].replace(0, np.nan)) * 100
-    merged['Total Level Drop'] = (merged['Game Play Drop'] + merged['Popup Drop'].replace(0, np.nan)) * 100
+    merged['Total Level Drop'] = (merged['Game Play Drop'] + merged['Popup Drop']
     merged['Retention %'] = (merged['Start Users'] / merged['Start Users'].max()) * 100
 
     # Clean NaNs
