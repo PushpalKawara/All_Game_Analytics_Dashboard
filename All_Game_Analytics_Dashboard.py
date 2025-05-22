@@ -141,98 +141,6 @@ def add_charts_to_excel(worksheet, charts):
         # Close figure to prevent memory leaks
         plt.close(charts[chart_type])
 
-# # ======================== EXCEL GENERATION ========================
-# def generate_excel(processed_data):
-#     """Create Excel workbook with formatted sheets"""
-#     wb = Workbook()
-#     wb.remove(wb.active)  # Remove default sheet
-
-#     # Create MAIN_TAB sheet
-#     main_sheet = wb.create_sheet("MAIN_TAB")
-#     main_headers = ["Index", "Sheet Name", "Game Play Drop Count", "Popup Drop Count",
-#                     "Total Level Drop Count", "LEVEL_Start", "Start Users",
-#                     "LEVEL_End", "USERS_END", "Link to Sheet"]
-#     main_sheet.append(main_headers)
-
-
-#     row_ptr = 2
-#     while row_ptr <= main_sheet.max_row:  # or any row number you want
-#        for cell in main_sheet[row_ptr]:
-#          cell.alignment = Alignment(horizontal='center', vertical='center')
-#        row_ptr += 1
-
-
-
-#     # Format main sheet headers
-#     for col in main_sheet[1]:
-#         col.font = Font(bold=True, color="FFFFFF")
-#         col.fill = PatternFill("solid", fgColor="4F81BD")
-
-#     # Process each game variant
-#     for idx, (game_id, df) in enumerate(processed_data.items(), start=1):
-#         sheet_name = f"{game_id}_{df['DIFFICULTY'].iloc[0]}"[:31]
-#         ws = wb.create_sheet(sheet_name)
-
-
-#         headers = ["=HYPERLINK(\"#MAIN_TAB!A1\", \"Back to Main\")", "Start Users", "Complete Users",
-#                    "Game Play Drop", "Popup Drop", "Total Level Drop", "Retention %",
-#                    "PLAY_TIME_AVG", "HINT_USED_SUM", "SKIPPED_SUM", "ATTEMPTS_SUM"]
-
-#         ws.append(headers)
-
-#         # Apply formatting to A1 hyperlink (now embedded in header)
-#         ws['A1'].font = Font(color="0000FF", underline="single", bold=True)
-
-
-
-#         # Add data rows
-#         for _, row in df.iterrows():
-#             values = [
-#                 row['LEVEL'],
-#                 row['Start Users'] if not pd.isna(row['Start Users']) else 0,
-#                 row['Complete Users'] if not pd.isna(row['Complete Users']) else 0,
-#                 round(row['Game Play Drop'] if not pd.isna(row['Game Play Drop']) else 0, 2),
-#                 round(row['Popup Drop'] if not pd.isna(row['Popup Drop']) else 0, 2),
-#                 round(row['Total Level Drop'] if not pd.isna(row['Total Level Drop']) else 0, 2),
-#                 round(row['Retention %'] if not pd.isna(row['Retention %']) else 0, 2),
-#                 round(row['PLAY_TIME_AVG'] if not pd.isna(row['PLAY_TIME_AVG']) else 0, 2),
-#                 round(row['HINT_USED_SUM'] if not pd.isna(row['HINT_USED_SUM']) else 0, 2),
-#                 round(row['SKIPPED_SUM'] if not pd.isna(row['SKIPPED_SUM']) else 0, 2),
-#                 round(row['ATTEMPTS_SUM'] if not pd.isna(row['ATTEMPTS_SUM']) else 0, 2),
-#             ]
-#             ws.append([val if val != "" else "0" for val in values])
-
-#             for cell in main_sheet[row_ptr]:
-#                 cell.alignment = Alignment(horizontal='center', vertical='center')
-#             row_ptr += 1
-
-
-#         # Add charts
-#         charts = create_charts(df, sheet_name)
-#         add_charts_to_excel(ws, charts)
-
-#         # Formatting
-#         apply_sheet_formatting(ws)
-#         apply_conditional_formatting(ws, df.shape[0])
-
-#         # Update MAIN_TAB
-#         main_row = [
-#             idx, sheet_name,
-#             sum(df['Game Play Drop'] >= (df['Start Users'] * 0.03)),
-#             sum(df['Popup Drop'] >= (df['Start Users'] * 0.03)),
-#             sum(df['Total Level Drop'] >= (df['Start Users'] * 0.03)),
-#             df['LEVEL'].min(), df['Start Users'].max(),
-#             df['LEVEL'].max(), df['Complete Users'].iloc[-1],
-#             f'=HYPERLINK("#{sheet_name}!A1", "View")'
-#         ]
-#         main_sheet.append(main_row)
-
-#     # Format main sheet
-#     for col in range(1, len(main_headers)+1):
-#         main_sheet.column_dimensions[get_column_letter(col)].width = 18
-
-    # return wb
-
 
 # # ======================== EXCEL GENERATION ========================
 def generate_excel(processed_data):
@@ -246,14 +154,6 @@ def generate_excel(processed_data):
                     "Total Level Drop Count", "LEVEL_Start", "Start Users",
                     "LEVEL_End", "USERS_END", "Link to Sheet"]
     main_sheet.append(main_headers)
-
-
-    # row_ptr = 2
-    # while row_ptr <= main_sheet.max_row:  # or any row number you want
-    #    for cell in main_sheet[row_ptr]:
-    #      cell.alignment = Alignment(horizontal='center', vertical='center')
-    #    row_ptr += 1
-
 
 
     main_rows = []  # List to collect main rows before sorting
@@ -276,7 +176,10 @@ def generate_excel(processed_data):
         ws.append(headers)
 
         # Apply formatting to A1 hyperlink (now embedded in header)
-        ws['A1'].font = Font(color="0000FF", underline="single", bold=True)
+        # In the game sheet creation section add these 2 lines:
+        ws['A1'].font = Font(color="0000FF", underline="single", bold=True, size=14)
+        ws['A1'].fill = PatternFill("solid", fgColor="FFFF00")  # Yellow background
+        ws.column_dimensions['A'].width = 25  # Set column width
 
 
 
@@ -303,13 +206,6 @@ def generate_excel(processed_data):
             for cell in main_sheet[row_ptr]:
                 cell.alignment = Alignment(horizontal='center', vertical='center')
             row_ptr += 1
-
-
-    # row_ptr = 2
-    # while row_ptr <= main_sheet.max_row:  # or any row number you want
-    #    for cell in main_sheet[row_ptr]:
-    #      cell.alignment = Alignment(horizontal='center', vertical='center')
-    #    row_ptr += 1
 
         # Add charts
         charts = create_charts(df, sheet_name)
