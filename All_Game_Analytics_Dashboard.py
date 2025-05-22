@@ -266,17 +266,12 @@ def apply_sheet_formatting(sheet):
         cell.font = Font(bold=True)
         cell.fill = PatternFill("solid", fgColor="DDDDDD")
 
-    # # Auto-fit columns
-    # for col in sheet.columns:
-    #     max_length = max(len(str(cell.value)) for cell in col)
-    #     sheet.column_dimensions[get_column_letter(col[0].column)].width = max_length + 2
-
     # Special formatting for A1 only in game sheets (not main tab)
     if sheet.title != "MAIN_TAB":
         a1_cell = sheet['A1']
         a1_cell.font = Font(color="0000FF", underline="single", bold=True, size=14)
         a1_cell.fill = PatternFill("solid", fgColor="FFFF00")
-        sheet.column_dimensions['A'].width = 25
+        sheet.column_dimensions['A'].width = 10
 
     # Auto-fit columns for other columns
     for col in sheet.columns:
@@ -284,9 +279,6 @@ def apply_sheet_formatting(sheet):
             continue
         max_length = max(len(str(cell.value)) for cell in col)
         sheet.column_dimensions[get_column_letter(col[0].column)].width = max_length + 2
-
-
-
 
 
 def apply_conditional_formatting(sheet, num_rows):
