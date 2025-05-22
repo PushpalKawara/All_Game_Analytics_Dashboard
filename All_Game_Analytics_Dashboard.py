@@ -85,7 +85,7 @@ def process_files(start_df, complete_df):
     merged['Retention %'] = (merged['Start Users'] / merged['Start Users'].max()) * 100
     # Clean NaNs
     merged.fillna({'Start Users': 0, 'Complete Users': 0}, inplace=True)
-    merged['Total Level Drop'] = (merged['Game Play Drop'] + merged['Popup Drop']
+    merged['Total Level Drop'] = merged['Game Play Drop'] + merged['Popup Drop']
     return merged
 
 
