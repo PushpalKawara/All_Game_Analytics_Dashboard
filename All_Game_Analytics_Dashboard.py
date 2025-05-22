@@ -165,10 +165,14 @@ def generate_excel(processed_data):
         col.fill = PatternFill("solid", fgColor="4F81BD")
 
     # Process each game variant
-    for idx, (game_id, df) in enumerate(processed_data.items(), start=1):
-        sheet_name = f"{game_id}_{df['DIFFICULTY'].iloc[0]}"[:31]
+    # for idx, (game_id, df) in enumerate(processed_data.items(), start=1):
+    #     sheet_name = f"{game_id}_{df['DIFFICULTY'].iloc[0]}"[:31]
+    #     ws = wb.create_sheet(sheet_name)
+    # In the sheet creation loop:
+    for idx, (game_key, df) in enumerate(processed_data.items(), start=1):
+        # Use the pre-formatted key directly as sheet name
+        sheet_name = f"{game_key}"[:31]  # Truncate to Excel's 31-character limit
         ws = wb.create_sheet(sheet_name)
-
 
         headers = ["=HYPERLINK(\"#MAIN_TAB!A1\", \"Back to Main\")", "Start Users", "Complete Users",
                    "Game Play Drop", "Popup Drop", "Total Level Drop", "Retention %",
@@ -324,10 +328,18 @@ def main():
                 complete_df = pd.read_csv(complete_file)
                 merged = process_files(start_df, complete_df)
 
-                # Group by game and difficulty
+                # # Group by game and difficulty
+                # processed_data = {}
+                # for (game_id, difficulty), group in merged.groupby(['GAME_ID', 'DIFFICULTY']):
+                #     processed_data[f"{game_id}"] = group
+
+                # In the main() function's processing section:
                 processed_data = {}
                 for (game_id, difficulty), group in merged.groupby(['GAME_ID', 'DIFFICULTY']):
-                    processed_data[f"{game_id}"] = group
+                    # Create unique key with game_id and difficulty
+                    key = f"{game_id}_{difficulty}"
+                    processed_data[key] = group  # Store group with combined key
+
 
                 # Generate Excel file
                 wb = generate_excel(processed_data)
