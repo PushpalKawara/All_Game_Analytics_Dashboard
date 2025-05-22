@@ -53,17 +53,18 @@ def process_files(start_df, complete_df):
         game_col: 'GAME_ID',
         diff_col: 'DIFFICULTY',
         'USERS': 'Start Users',
-        playtime_col: 'PLAY_TIME_AVG' if playtime_col else None,
-        hint_col: 'HINT_USED_SUM' if hint_col else None,
-        skipped_col: 'SKIPPED_SUM' if skipped_col else None,
-        attempts_col: 'ATTEMPTS_SUM' if attempts_col else None,
+
     }, inplace=True)
 
     complete_df.rename(columns={
         level_col: 'LEVEL',
         game_col: 'GAME_ID',
         diff_col: 'DIFFICULTY',
-        'USERS': 'Complete Users'
+        'USERS': 'Complete Users',
+        playtime_col: 'PLAY_TIME_AVG' if playtime_col else None,
+        hint_col: 'HINT_USED_SUM' if hint_col else None,
+        skipped_col: 'SKIPPED_SUM' if skipped_col else None,
+        attempts_col: 'ATTEMPTS_SUM' if attempts_col else None,
     }, inplace=True)
 
     # Merge
