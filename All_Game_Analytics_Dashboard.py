@@ -89,50 +89,6 @@ def process_files(start_df, complete_df):
     return merged
 
 
-
-
-# def process_files(start_df, complete_df):
-#     """Process and merge the two dataframes with dynamic column name handling"""
-
-#     # Define flexible column name mappings
-#     def get_column(df, possible_names):
-#         for col in df.columns:
-#             if col.strip().lower() in [name.lower() for name in possible_names]:
-#                 return col
-#         return None
-
-#     # Resolve correct column names dynamically
-#     level_col = get_column(start_df, ['LEVEL', 'TOTALLEVELS', 'STAGE'])
-#     game_col = get_column(start_df, ['GAME_ID', 'CATEGORY', 'Game_name'])
-#     diff_col = get_column(start_df, ['DIFFICULTY', 'mode'])
-
-#     # Clean and sort data
-#     for df in [start_df, complete_df]:
-#         df[level_col] = df[level_col].apply(clean_level)
-#         df.sort_values(level_col, inplace=True)
-
-#     # Rename columns to standard names for processing
-#     start_df.rename(columns={level_col: 'LEVEL', game_col: 'GAME_ID', diff_col: 'DIFFICULTY', 'USERS': 'Start Users'}, inplace=True)
-#     complete_df.rename(columns={level_col: 'LEVEL', game_col: 'GAME_ID', diff_col: 'DIFFICULTY', 'USERS': 'Complete Users'}, inplace=True)
-
-#     # Merge data
-#     merged = pd.merge(start_df, complete_df, on=['GAME_ID', 'DIFFICULTY', 'LEVEL'], how='outer', suffixes=('_start', '_complete'))
-
-#     # Select required columns
-#     keep_cols = ['GAME_ID', 'DIFFICULTY', 'LEVEL', 'Start Users', 'Complete Users',
-#                  'PLAY_TIME_AVG', 'HINT_USED_SUM', 'SKIPPED_SUM', 'ATTEMPTS_SUM']
-#     merged = merged[keep_cols]
-
-#     # Calculate metrics
-#     merged['Game Play Drop'] = ((merged['Start Users'] - merged['Complete Users']) / merged['Start Users'].replace(0, np.nan)) * 100
-#     merged['Popup Drop'] = ((merged['Complete Users'] - merged['Start Users'].shift(-1)) / merged['Complete Users'].replace(0, np.nan)) * 100
-#     merged['Total Level Drop'] = ((merged['Start Users'] - merged['Start Users'].shift(-1)) / merged['Start Users'].replace(0, np.nan)) * 100
-#     merged['Retention %'] = (merged['Start Users'] / merged['Start Users'].max()) * 100
-
-#     merged.fillna({'Start Users': 0, 'Complete Users': 0}, inplace=True)
-#     return merged
-
-
 # ======================== CHART GENERATION ========================
 def create_charts(df, game_name):
     """Generate matplotlib charts"""
@@ -205,6 +161,8 @@ def generate_excel(processed_data):
          cell.alignment = Alignment(horizontal='center', vertical='center')
        row_ptr += 1
 
+
+
     # Format main sheet headers
     for col in main_sheet[1]:
         col.font = Font(bold=True, color="FFFFFF")
@@ -244,9 +202,16 @@ def generate_excel(processed_data):
             ]
             ws.append([val if val != "" else "0" for val in values])
 
-            for cell in main_sheet[row_ptr]:
-                cell.alignment = Alignment(horizontal='center', vertical='center')
-            row_ptr += 1
+            # for cell in main_sheet[row_ptr]:
+            #     cell.alignment = Alignment(horizontal='center', vertical='center')
+            # row_ptr += 1
+
+
+            row_ptr = 2
+            while row_ptr <= main_sheet.max_row:  # or any row number you want
+                for cell in main_sheet[row_ptr]:
+                      cell.alignment = Alignment(horizontal='center', vertical='center')
+                row_ptr += 1
 
 
         # Add charts
