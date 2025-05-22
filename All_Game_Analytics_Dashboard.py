@@ -263,7 +263,7 @@ def generate_excel(processed_data):
 def apply_sheet_formatting(sheet):
     """Apply consistent formatting to sheets"""
     # Freeze header row
-    sheet.freeze_panes = 'A1'
+    sheet.freeze_panes = 'A2'
 
     # Format headers
     for cell in sheet[1]:  # Data headers start at row 1
