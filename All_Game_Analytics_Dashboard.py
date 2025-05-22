@@ -176,12 +176,9 @@ def generate_excel(processed_data):
         ws.append(headers)
 
         # Apply formatting to A1 hyperlink (now embedded in header)
-        # In the game sheet creation section add these 2 lines:
         ws['A1'].font = Font(color="0000FF", underline="single", bold=True, size=14)
         ws['A1'].fill = PatternFill("solid", fgColor="FFFF00")  # Yellow background
         ws.column_dimensions['A'].width = 25  # Set column width
-
-
 
         # Add data rows
         for _, row in df.iterrows():
@@ -269,10 +266,28 @@ def apply_sheet_formatting(sheet):
         cell.font = Font(bold=True)
         cell.fill = PatternFill("solid", fgColor="DDDDDD")
 
-    # Auto-fit columns
+    # # Auto-fit columns
+    # for col in sheet.columns:
+    #     max_length = max(len(str(cell.value)) for cell in col)
+    #     sheet.column_dimensions[get_column_letter(col[0].column)].width = max_length + 2
+
+    # Special formatting for A1 only in game sheets (not main tab)
+    if sheet.title != "MAIN_TAB":
+        a1_cell = sheet['A1']
+        a1_cell.font = Font(color="0000FF", underline="single", bold=True, size=14)
+        a1_cell.fill = PatternFill("solid", fgColor="FFFF00")
+        sheet.column_dimensions['A'].width = 25
+
+    # Auto-fit columns for other columns
     for col in sheet.columns:
+        if col[0].column == 1 and sheet.title != "MAIN_TAB":  # Skip column A for game sheets
+            continue
         max_length = max(len(str(cell.value)) for cell in col)
         sheet.column_dimensions[get_column_letter(col[0].column)].width = max_length + 2
+
+
+
+
 
 def apply_conditional_formatting(sheet, num_rows):
     """Apply color scale formatting to drop columns"""
