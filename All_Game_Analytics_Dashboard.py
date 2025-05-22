@@ -141,7 +141,7 @@ def add_charts_to_excel(worksheet, charts):
         # Close figure to prevent memory leaks
         plt.close(charts[chart_type])
 
-# ======================== EXCEL GENERATION ========================
+# # ======================== EXCEL GENERATION ========================
 # def generate_excel(processed_data):
 #     """Create Excel workbook with formatted sheets"""
 #     wb = Workbook()
@@ -231,10 +231,10 @@ def add_charts_to_excel(worksheet, charts):
 #     for col in range(1, len(main_headers)+1):
 #         main_sheet.column_dimensions[get_column_letter(col)].width = 18
 
-#     return wb
+    # return wb
 
 
-# ======================== EXCEL GENERATION ========================
+# # ======================== EXCEL GENERATION ========================
 def generate_excel(processed_data):
     """Create Excel workbook with formatted sheets"""
     wb = Workbook()
@@ -247,27 +247,36 @@ def generate_excel(processed_data):
                     "LEVEL_End", "USERS_END", "Link to Sheet"]
     main_sheet.append(main_headers)
 
+
+    row_ptr = 2
+    while row_ptr <= main_sheet.max_row:  # or any row number you want
+       for cell in main_sheet[row_ptr]:
+         cell.alignment = Alignment(horizontal='center', vertical='center')
+       row_ptr += 1
+
+    main_rows = []  # List to collect main rows before sorting
+
     # Format main sheet headers
     for col in main_sheet[1]:
         col.font = Font(bold=True, color="FFFFFF")
         col.fill = PatternFill("solid", fgColor="4F81BD")
-        col.alignment = Alignment(horizontal='center', vertical='center')
-
-    main_rows = []  # List to collect main rows before sorting
 
     # Process each game variant
     for idx, (game_id, df) in enumerate(processed_data.items(), start=1):
         sheet_name = f"{game_id}_{df['DIFFICULTY'].iloc[0]}"[:31]
         ws = wb.create_sheet(sheet_name)
 
-        # Create sheet headers with hyperlink
+
         headers = ["=HYPERLINK(\"#MAIN_TAB!A1\", \"Back to Main\")", "Start Users", "Complete Users",
                    "Game Play Drop", "Popup Drop", "Total Level Drop", "Retention %",
                    "PLAY_TIME_AVG", "HINT_USED_SUM", "SKIPPED_SUM", "ATTEMPTS_SUM"]
+
         ws.append(headers)
 
-        # Format hyperlink cell
+        # Apply formatting to A1 hyperlink (now embedded in header)
         ws['A1'].font = Font(color="0000FF", underline="single", bold=True)
+
+
 
         # Add data rows
         for _, row in df.iterrows():
@@ -286,28 +295,30 @@ def generate_excel(processed_data):
             ]
             ws.append([val if val != "" else "0" for val in values])
 
+            for cell in main_sheet[row_ptr]:
+                cell.alignment = Alignment(horizontal='center', vertical='center')
+            row_ptr += 1
+
+
         # Add charts
         charts = create_charts(df, sheet_name)
         add_charts_to_excel(ws, charts)
 
-        # Apply formatting
+        # Formatting
         apply_sheet_formatting(ws)
         apply_conditional_formatting(ws, df.shape[0])
 
-        # Collect main tab data for sorting
+        # Update MAIN_TAB
         main_row = [
-            idx,
-            sheet_name,
+            idx, sheet_name,
             sum(df['Game Play Drop'] >= (df['Start Users'] * 0.03)),
             sum(df['Popup Drop'] >= (df['Start Users'] * 0.03)),
             sum(df['Total Level Drop'] >= (df['Start Users'] * 0.03)),
-            df['LEVEL'].min(),
-            df['Start Users'].max(),
-            df['LEVEL'].max(),
-            df['Complete Users'].iloc[-1],
+            df['LEVEL'].min(), df['Start Users'].max(),
+            df['LEVEL'].max(), df['Complete Users'].iloc[-1],
             f'=HYPERLINK("#{sheet_name}!A1", "View")'
         ]
-        main_rows.append(main_row)
+        main_sheet.append(main_row)
 
     # Sort main rows by index number before adding to sheet
     main_rows.sort(key=lambda x: x[0])
@@ -316,7 +327,9 @@ def generate_excel(processed_data):
     for row in main_rows:
         main_sheet.append(row)
 
-    # Apply formatting to all cells in main sheet
+
+
+     # Apply formatting to all cells in main sheet
     for row in main_sheet.iter_rows():
         for cell in row:
             cell.alignment = Alignment(horizontal='center', vertical='center')
@@ -329,7 +342,16 @@ def generate_excel(processed_data):
     for i, width in enumerate(column_widths, start=1):
         main_sheet.column_dimensions[get_column_letter(i)].width = width
 
+
+    # Format main sheet
+    for col in range(1, len(main_headers)+1):
+        main_sheet.column_dimensions[get_column_letter(col)].width = 18
+
     return wb
+
+
+
+
 
 # ======================== REMAINING FUNCTIONS AND UI (UNCHANGED) ========================
 # [Keep the apply_sheet_formatting, apply_conditional_formatting, and main() functions
