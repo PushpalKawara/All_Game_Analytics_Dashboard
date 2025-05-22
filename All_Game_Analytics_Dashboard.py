@@ -248,11 +248,13 @@ def generate_excel(processed_data):
     main_sheet.append(main_headers)
 
 
-    row_ptr = 2
-    while row_ptr <= main_sheet.max_row:  # or any row number you want
-       for cell in main_sheet[row_ptr]:
-         cell.alignment = Alignment(horizontal='center', vertical='center')
-       row_ptr += 1
+    # row_ptr = 2
+    # while row_ptr <= main_sheet.max_row:  # or any row number you want
+    #    for cell in main_sheet[row_ptr]:
+    #      cell.alignment = Alignment(horizontal='center', vertical='center')
+    #    row_ptr += 1
+
+
 
     main_rows = []  # List to collect main rows before sorting
 
@@ -295,10 +297,19 @@ def generate_excel(processed_data):
             ]
             ws.append([val if val != "" else "0" for val in values])
 
+
+        row_ptr = 2
+        while row_ptr <= main_sheet.max_row:  # or any row number you want
             for cell in main_sheet[row_ptr]:
                 cell.alignment = Alignment(horizontal='center', vertical='center')
             row_ptr += 1
 
+
+    # row_ptr = 2
+    # while row_ptr <= main_sheet.max_row:  # or any row number you want
+    #    for cell in main_sheet[row_ptr]:
+    #      cell.alignment = Alignment(horizontal='center', vertical='center')
+    #    row_ptr += 1
 
         # Add charts
         charts = create_charts(df, sheet_name)
@@ -341,11 +352,6 @@ def generate_excel(processed_data):
     column_widths = [8, 25, 20, 18, 20, 12, 15, 12, 15, 15]
     for i, width in enumerate(column_widths, start=1):
         main_sheet.column_dimensions[get_column_letter(i)].width = width
-
-
-    # Format main sheet
-    for col in range(1, len(main_headers)+1):
-        main_sheet.column_dimensions[get_column_letter(col)].width = 18
 
     return wb
 
