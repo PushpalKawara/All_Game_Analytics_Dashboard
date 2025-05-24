@@ -82,7 +82,20 @@ def process_files(start_df, complete_df):
     # Calculate drops and retention
     merged['Game Play Drop'] = ((merged['Start Users'] - merged['Complete Users']) / merged['Start Users'].replace(0, np.nan)) * 100
     merged['Popup Drop'] = ((merged['Complete Users'] - merged['Start Users'].shift(-1)) / merged['Complete Users'].replace(0, np.nan)) * 100
-    merged['Retention %'] = (merged['Start Users'] / merged['Start Users'].max()) * 100
+    # ========== CORRECTED RETENTION CALCULATION ==========
+    def calculate_retention(group):
+        """Calculate retention using level 1/2 start users as base"""
+        base_users = group[group['LEVEL'].isin([1, 2])]['Start Users'].max()
+        # Handle cases with no valid base users
+        if base_users == 0 or pd.isnull(base_users):
+            base_users = group['Start Users'].max()
+        group['Retention %'] = (group['Start Users'] / base_users) * 100
+        return group
+
+    # Apply to each game-difficulty group
+    merged = merged.groupby(['GAME_ID', 'DIFFICULTY'], group_keys=False).apply(calculate_retention)
+    # ========== END CORRECTION ==========
+
     # Clean NaNs
     merged.fillna({'Start Users': 0, 'Complete Users': 0}, inplace=True)
     merged['Total Level Drop'] = merged['Game Play Drop'] + merged['Popup Drop']
