@@ -165,7 +165,7 @@ def create_charts(df, game_name):
     ]
 
     # ========== RETENTION CHART ==========
-    fig1, ax1 = plt.subplots(figsize=(12, 4))
+    fig1, ax1 = plt.subplots(figsize=(8, 3.5))
     if 'Retention %' in df_100.columns and not df_100['Retention %'].dropna().empty:
         ax1.plot(df_100['LEVEL'], df_100['Retention %'],
                  linestyle='-', color='#F57C00', linewidth=2, label='Retention')
@@ -191,7 +191,7 @@ def create_charts(df, game_name):
     charts['retention'] = fig1
 
     # ========== TOTAL DROP CHART ==========
-    fig2, ax2 = plt.subplots(figsize=(12, 4))
+    fig2, ax2 = plt.subplots(figsize=(8, 3.5))
     if 'Total Level Drop' in df_100.columns and not df_100['Total Level Drop'].dropna().empty:
         bars = ax2.bar(df_100['LEVEL'], df_100['Total Level Drop'],
                        color='#EF5350', label='Drop Rate')
@@ -222,7 +222,7 @@ def create_charts(df, game_name):
     charts['total_drop'] = fig2
 
     # ========== COMBO DROP CHART ==========
-    fig3, ax3 = plt.subplots(figsize=(12, 4))
+    fig3, ax3 = plt.subplots(figsize=(8, 3.5))
     if ('Game Play Drop' in df_100.columns and
         'Popup Drop' in df_100.columns and
         not df_100['Game Play Drop'].dropna().empty and
@@ -391,7 +391,7 @@ def add_charts_to_excel(worksheet, charts):
     for chart_type, pos in img_positions.items():
         if chart_type in charts:
             img_data = BytesIO()
-            charts[chart_type].savefig(img_data, format='png', dpi=150, bbox_inches='tight')
+            charts[chart_type].savefig(img_data, format='png', dpi=100, bbox_inches='tight')
             img_data.seek(0)
             img = OpenpyxlImage(img_data)
             worksheet.add_image(img, pos)
