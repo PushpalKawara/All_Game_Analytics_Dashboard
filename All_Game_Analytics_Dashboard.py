@@ -247,10 +247,19 @@ def generate_excel(processed_data):
         ]
         main_sheet.append(main_row)
 
-    # Format main sheet
-    for row in main_sheet.iter_rows(min_row=2):
+    # # Format main sheet
+    # for row in main_sheet.iter_rows(min_row=2):
+    #     for cell in row:
+    #         cell.alignment = Alignment(horizontal='center', vertical='center')
+
+         # Apply formatting to all cells in main sheet
+    for row in main_sheet.iter_rows():
         for cell in row:
             cell.alignment = Alignment(horizontal='center', vertical='center')
+            if cell.row == 1:  # Keep header formatting
+                cell.font = Font(bold=True, color="FFFFFF")
+                cell.fill = PatternFill("solid", fgColor="4F81BD")
+
 
     column_widths = [8, 25, 20, 18, 20, 12, 15, 12, 15, 15]
     for i, width in enumerate(column_widths, start=1):
@@ -265,22 +274,21 @@ def apply_sheet_formatting(sheet):
     for cell in sheet[1]:
         cell.font = Font(bold=True)
         cell.fill = PatternFill("solid", fgColor="DDDDDD")
+ #  Special formatting for A1 only in game sheets (not main tab)
     if sheet.title != "MAIN_TAB":
+        a1_cell = sheet['A1']
+        a1_cell.font = Font(color="0000FF", underline="single", bold=True, size=11)
+        a1_cell.fill = PatternFill("solid", fgColor="FFFF00")
         sheet.column_dimensions['A'].width = 14
 
-# def apply_conditional_formatting(sheet, num_rows):
-#     """Apply color scale formatting to drop columns"""
-#     for row in sheet.iter_rows(min_row=2, max_row=num_rows+1):
-#         for cell in row:
-#             if cell.column_letter in ['D', 'E', 'F'] and isinstance(cell.value, (int, float)):
-#                 if cell.value >= 10:
-#                     cell.fill = PatternFill(start_color='FF6666', end_color='FF6666', fill_type='solid')
-#                 elif cell.value >= 7:
-#                     cell.fill = PatternFill(start_color='FF9999', end_color='FF9999', fill_type='solid')
-#                 elif cell.value >= 3:
-#                     cell.fill = PatternFill(start_color='FFC7CE', end_color='FFC7CE', fill_type='solid')
-#                 cell.font = Font(color="FFFFFF")
-#             cell.alignment = Alignment(horizontal='center', vertical='center')
+    # Auto-fit columns for other columns
+    for col in sheet.columns:
+        if col[0].column == 1 and sheet.title != "MAIN_TAB":  # Skip column A for game sheets
+            continue
+        max_length = max(len(str(cell.value)) for cell in col)
+        sheet.column_dimensions[get_column_letter(col[0].column)].width = max_length + 2
+
+
 
 def apply_conditional_formatting(sheet, num_rows):
     """Apply color scale formatting to drop columns"""
