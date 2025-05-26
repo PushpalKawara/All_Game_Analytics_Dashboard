@@ -182,11 +182,9 @@ def process_files(start_df, complete_df):
 
 # import matplotlib.pyplot as plt
 # import numpy as np
-
 # ======================== CHART GENERATION ========================
-# def create_charts(df, game_name, version="1.0", date_str="01-01-2025"):
 def create_charts(df, game_name):
-    """Generate enhanced matplotlib charts (levels 1 -- 100 only)"""
+    """Generate enhanced matplotlib charts (levels 1–100 only)"""
     charts = {}
 
     # Filter up to level 100 only
@@ -200,7 +198,7 @@ def create_charts(df, game_name):
 
     # ========== RETENTION CHART ==========
     fig1, ax1 = plt.subplots(figsize=(15, 7))
-    if 'Retention %' in df_100.columns:
+    if 'Retention %' in df_100.columns and not df_100['Retention %'].dropna().empty:
         ax1.plot(df_100['LEVEL'], df_100['Retention %'],
                  linestyle='-', color='#F57C00', linewidth=2, label='Retention')
 
@@ -218,7 +216,6 @@ def create_charts(df, game_name):
                       fontsize=12, fontweight='bold')
         ax1.legend(loc='lower left', fontsize=8)
 
-        # Annotate
         for x, y in zip(df_100['LEVEL'], df_100['Retention %']):
             if not np.isnan(y):
                 ax1.text(x, -5, f"{int(y)}", ha='center', va='top', fontsize=7)
@@ -227,12 +224,15 @@ def create_charts(df, game_name):
 
     # ========== TOTAL DROP CHART ==========
     fig2, ax2 = plt.subplots(figsize=(15, 6))
-    if 'Total Level Drop' in df_100.columns:
+    if 'Total Level Drop' in df_100.columns and not df_100['Total Level Drop'].dropna().empty:
         bars = ax2.bar(df_100['LEVEL'], df_100['Total Level Drop'],
                        color='#EF5350', label='Drop Rate')
 
+        drop_max = df_100['Total Level Drop'].max()
+        drop_max = drop_max if not pd.isna(drop_max) else 0
+        ymax = max(drop_max, 10) + 10
+
         ax2.set_xlim(1, 100)
-        ymax = max(df_100['Total Level Drop'].max(), 10) + 10
         ax2.set_ylim(0, ymax)
         ax2.set_xticks(np.arange(1, 101, 1))
         ax2.set_yticks(np.arange(0, ymax + 1, 5))
@@ -255,7 +255,11 @@ def create_charts(df, game_name):
 
     # ========== COMBO DROP CHART ==========
     fig3, ax3 = plt.subplots(figsize=(15, 6))
-    if 'Game Play Drop' in df_100.columns and 'Popup Drop' in df_100.columns:
+    if ('Game Play Drop' in df_100.columns and
+        'Popup Drop' in df_100.columns and
+        not df_100['Game Play Drop'].dropna().empty and
+        not df_100['Popup Drop'].dropna().empty):
+
         width = 0.4
         x = df_100['LEVEL']
         ax3.bar(x - width/2, df_100['Popup Drop'], width,
@@ -263,7 +267,12 @@ def create_charts(df, game_name):
         ax3.bar(x + width/2, df_100['Game Play Drop'], width,
                 color='#66BB6A', label='Game Play Drop')
 
-        max_drop = max(df_100['Game Play Drop'].max(), df_100['Popup Drop'].max(), 10) + 10
+        gpd_max = df_100['Game Play Drop'].max()
+        pd_max = df_100['Popup Drop'].max()
+        gpd_max = gpd_max if not pd.isna(gpd_max) else 0
+        pd_max = pd_max if not pd.isna(pd_max) else 0
+        max_drop = max(gpd_max, pd_max, 10) + 10
+
         ax3.set_xlim(1, 100)
         ax3.set_ylim(0, max_drop)
         ax3.set_xticks(np.arange(1, 101, 1))
@@ -281,6 +290,7 @@ def create_charts(df, game_name):
     charts['combined_drop'] = fig3
 
     return charts
+
 
 # ======================== EXCEL GENERATION ========================
 def generate_excel(processed_data):
