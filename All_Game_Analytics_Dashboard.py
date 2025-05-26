@@ -149,39 +149,7 @@ def process_files(start_df, complete_df):
 
     return merged
 
-# # ======================== CHART GENERATION ========================
-# def create_charts(df, game_name):
-#     """Generate matplotlib charts"""
-#     charts = {}
 
-#     # Retention Chart
-#     fig1, ax1 = plt.subplots(figsize=(12, 4))
-#     if 'Retention %' in df.columns:
-#         ax1.plot(df['LEVEL'], df['Retention %'], color='#4CAF50')
-#     ax1.set_title(f"{game_name} - Retention %", fontsize=10)
-#     charts['retention'] = fig1
-
-#     # Total Level Drop Chart
-#     fig2, ax2 = plt.subplots(figsize=(12, 4))
-#     if 'Total Level Drop' in df.columns:
-#         ax2.bar(df['LEVEL'], df['Total Level Drop'], color='#F44336')
-#     ax2.set_title(f"{game_name} - Total Level Drop", fontsize=10)
-#     charts['total_drop'] = fig2
-
-#     # Combined Drop Chart
-#     fig3, ax3 = plt.subplots(figsize=(12, 4))
-#     width = 0.35
-#     if 'Game Play Drop' in df.columns and 'Popup Drop' in df.columns:
-#         ax3.bar(df['LEVEL'] - width/2, df['Game Play Drop'], width, label='Game Play Drop')
-#         ax3.bar(df['LEVEL'] + width/2, df['Popup Drop'], width, label='Popup Drop')
-#     ax3.set_title(f"{game_name} - Drop Comparison", fontsize=10)
-#     ax3.legend()
-#     charts['combined_drop'] = fig3
-
-#     return charts
-
-# import matplotlib.pyplot as plt
-# import numpy as np
 # ======================== CHART GENERATION ========================
 def create_charts(df, game_name):
     """Generate enhanced matplotlib charts (levels 1–100 only)"""
@@ -197,7 +165,7 @@ def create_charts(df, game_name):
     ]
 
     # ========== RETENTION CHART ==========
-    fig1, ax1 = plt.subplots(figsize=(15, 7))
+    fig1, ax1 = plt.subplots(figsize=(12, 4))
     if 'Retention %' in df_100.columns and not df_100['Retention %'].dropna().empty:
         ax1.plot(df_100['LEVEL'], df_100['Retention %'],
                  linestyle='-', color='#F57C00', linewidth=2, label='Retention')
@@ -223,7 +191,7 @@ def create_charts(df, game_name):
     charts['retention'] = fig1
 
     # ========== TOTAL DROP CHART ==========
-    fig2, ax2 = plt.subplots(figsize=(15, 6))
+    fig2, ax2 = plt.subplots(figsize=(12, 4))
     if 'Total Level Drop' in df_100.columns and not df_100['Total Level Drop'].dropna().empty:
         bars = ax2.bar(df_100['LEVEL'], df_100['Total Level Drop'],
                        color='#EF5350', label='Drop Rate')
@@ -254,7 +222,7 @@ def create_charts(df, game_name):
     charts['total_drop'] = fig2
 
     # ========== COMBO DROP CHART ==========
-    fig3, ax3 = plt.subplots(figsize=(15, 6))
+    fig3, ax3 = plt.subplots(figsize=(12, 4))
     if ('Game Play Drop' in df_100.columns and
         'Popup Drop' in df_100.columns and
         not df_100['Game Play Drop'].dropna().empty and
@@ -419,7 +387,7 @@ def apply_conditional_formatting(sheet, num_rows):
 
 def add_charts_to_excel(worksheet, charts):
     """Add charts to Excel worksheet"""
-    img_positions = {'retention': 'M2', 'total_drop': 'N32', 'combined_drop': 'N65'}
+    img_positions = {'retention': 'M2', 'total_drop': 'M32', 'combined_drop': 'M65'}
     for chart_type, pos in img_positions.items():
         if chart_type in charts:
             img_data = BytesIO()
