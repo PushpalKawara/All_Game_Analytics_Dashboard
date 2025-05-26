@@ -268,6 +268,20 @@ def apply_sheet_formatting(sheet):
     if sheet.title != "MAIN_TAB":
         sheet.column_dimensions['A'].width = 14
 
+# def apply_conditional_formatting(sheet, num_rows):
+#     """Apply color scale formatting to drop columns"""
+#     for row in sheet.iter_rows(min_row=2, max_row=num_rows+1):
+#         for cell in row:
+#             if cell.column_letter in ['D', 'E', 'F'] and isinstance(cell.value, (int, float)):
+#                 if cell.value >= 10:
+#                     cell.fill = PatternFill(start_color='FF6666', end_color='FF6666', fill_type='solid')
+#                 elif cell.value >= 7:
+#                     cell.fill = PatternFill(start_color='FF9999', end_color='FF9999', fill_type='solid')
+#                 elif cell.value >= 3:
+#                     cell.fill = PatternFill(start_color='FFC7CE', end_color='FFC7CE', fill_type='solid')
+#                 cell.font = Font(color="FFFFFF")
+#             cell.alignment = Alignment(horizontal='center', vertical='center')
+
 def apply_conditional_formatting(sheet, num_rows):
     """Apply color scale formatting to drop columns"""
     for row in sheet.iter_rows(min_row=2, max_row=num_rows+1):
@@ -275,11 +289,16 @@ def apply_conditional_formatting(sheet, num_rows):
             if cell.column_letter in ['D', 'E', 'F'] and isinstance(cell.value, (int, float)):
                 if cell.value >= 10:
                     cell.fill = PatternFill(start_color='FF6666', end_color='FF6666', fill_type='solid')
+                    cell.font = Font(color="FFFFFF")
                 elif cell.value >= 7:
                     cell.fill = PatternFill(start_color='FF9999', end_color='FF9999', fill_type='solid')
+                    cell.font = Font(color="FFFFFF")
                 elif cell.value >= 3:
                     cell.fill = PatternFill(start_color='FFC7CE', end_color='FFC7CE', fill_type='solid')
-                cell.font = Font(color="FFFFFF")
+                    cell.font = Font(color="FFFFFF")
+                elif cell.value < 0:
+                    # Do not apply any fill or font color
+                    pass
             cell.alignment = Alignment(horizontal='center', vertical='center')
 
 def add_charts_to_excel(worksheet, charts):
