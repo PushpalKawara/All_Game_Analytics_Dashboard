@@ -247,11 +247,6 @@ def generate_excel(processed_data):
         ]
         main_sheet.append(main_row)
 
-    # # Format main sheet
-    # for row in main_sheet.iter_rows(min_row=2):
-    #     for cell in row:
-    #         cell.alignment = Alignment(horizontal='center', vertical='center')
-
          # Apply formatting to all cells in main sheet
     for row in main_sheet.iter_rows():
         for cell in row:
@@ -280,6 +275,7 @@ def apply_sheet_formatting(sheet):
         a1_cell.font = Font(color="0000FF", underline="single", bold=True, size=11)
         a1_cell.fill = PatternFill("solid", fgColor="FFFF00")
         sheet.column_dimensions['A'].width = 14
+        cell.alignment = Alignment(horizontal='center', vertical='center')
 
     # Auto-fit columns for other columns
     for col in sheet.columns:
@@ -296,13 +292,13 @@ def apply_conditional_formatting(sheet, num_rows):
         for cell in row:
             if cell.column_letter in ['D', 'E', 'F'] and isinstance(cell.value, (int, float)):
                 if cell.value >= 10:
-                    cell.fill = PatternFill(start_color='FF6666', end_color='FF6666', fill_type='solid')
+                    cell.fill = PatternFill(start_color='990000', end_color='990000', fill_type='solid')
                     cell.font = Font(color="FFFFFF")
                 elif cell.value >= 7:
-                    cell.fill = PatternFill(start_color='FF9999', end_color='FF9999', fill_type='solid')
+                    cell.fill = PatternFill(start_color='CC3333', end_color='CC3333', fill_type='solid')
                     cell.font = Font(color="FFFFFF")
                 elif cell.value >= 3:
-                    cell.fill = PatternFill(start_color='FFC7CE', end_color='FFC7CE', fill_type='solid')
+                    cell.fill = PatternFill(start_color='FF6666', end_color='FF6666', fill_type='solid')
                     cell.font = Font(color="FFFFFF")
                 elif cell.value < 0:
                     # Do not apply any fill or font color
