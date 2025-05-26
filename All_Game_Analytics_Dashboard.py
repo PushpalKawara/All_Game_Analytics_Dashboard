@@ -122,7 +122,11 @@ def process_files(start_df, complete_df):
         'Total Level Drop': 0,
         'Retention %': 0
     }, inplace=True)
-    
+
+    # Fill all remaining numeric columns with 0
+    numeric_cols = merged.select_dtypes(include=[np.number]).columns
+    merged[numeric_cols] = merged[numeric_cols].fillna(0)
+  
     merged['Total Level Drop'] = merged['Game Play Drop'] + merged['Popup Drop']
     
     return merged
