@@ -184,8 +184,9 @@ def process_files(start_df, complete_df):
 # import numpy as np
 
 # ======================== CHART GENERATION ========================
-def create_charts(df, game_name, version="1.0", date_str="01-01-2025"):
-    """Generate enhanced matplotlib charts (levels 1–100 only)"""
+# def create_charts(df, game_name, version="1.0", date_str="01-01-2025"):
+def create_charts(df, game_name):
+    """Generate enhanced matplotlib charts (levels 1 -- 100 only)"""
     charts = {}
 
     # Filter up to level 100 only
@@ -213,7 +214,7 @@ def create_charts(df, game_name, version="1.0", date_str="01-01-2025"):
 
         ax1.set_xlabel("Level", labelpad=15)
         ax1.set_ylabel("% Of Users", labelpad=15)
-        ax1.set_title(f"{game_name} | Retention Chart (Levels 1–100) | Ver. {version} | {date_str}",
+        ax1.set_title(f"{game_name} | Retention Chart (Levels 1–100)",
                       fontsize=12, fontweight='bold')
         ax1.legend(loc='lower left', fontsize=8)
 
@@ -241,7 +242,7 @@ def create_charts(df, game_name, version="1.0", date_str="01-01-2025"):
 
         ax2.set_xlabel("Level")
         ax2.set_ylabel("% Of Users Drop")
-        ax2.set_title(f"{game_name} | Total Drop Chart (Levels 1–100) | Ver. {version} | {date_str}",
+        ax2.set_title(f"{game_name} | Total Drop Chart (Levels 1–100)",
                       fontsize=12, fontweight='bold')
         ax2.legend(loc='upper right', fontsize=8)
 
@@ -273,7 +274,7 @@ def create_charts(df, game_name, version="1.0", date_str="01-01-2025"):
 
         ax3.set_xlabel("Level")
         ax3.set_ylabel("% Of Users Dropped")
-        ax3.set_title(f"{game_name} | Game Play & Popup Drop (Levels 1–100) | Ver. {version} | {date_str}",
+        ax3.set_title(f"{game_name} | Game Play & Popup Drop (Levels 1–100)",
                       fontsize=12, fontweight='bold')
         ax3.legend(loc='upper right', fontsize=8)
 
