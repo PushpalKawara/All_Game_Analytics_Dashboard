@@ -395,7 +395,7 @@ def apply_conditional_formatting(sheet, num_rows):
 
 def add_charts_to_excel(worksheet, charts):
     """Add charts to Excel worksheet"""
-    img_positions = {'retention': 'M2', 'total_drop': 'M37', 'combined_drop': 'M67'}
+    img_positions = {'retention': 'M2', 'total_drop': 'M52', 'combined_drop': 'M98'}
     for chart_type, pos in img_positions.items():
         if chart_type in charts:
             img_data = BytesIO()
