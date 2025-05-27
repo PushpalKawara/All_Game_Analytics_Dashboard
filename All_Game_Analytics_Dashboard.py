@@ -170,36 +170,89 @@ def create_charts(df, game_name):
     x_ticks = np.arange(1, 101, 5)
     x_tick_labels = [f"L{v}" if v%10==0 else str(v) for v in x_ticks]
 
-    # ========== RETENTION CHART ==========
+    # # ========== RETENTION CHART ==========
+    # if 'Retention %' in df_100.columns:
+    #     fig1, ax1 = plt.subplots(figsize=(16, 6))
+    #     ax1.plot(levels, df_100['Retention %'], 
+    #             color='#1f77b4', linewidth=2.5, marker='o', markersize=4)
+        
+    #     # Axis formatting
+    #     ax1.set_xlim(0.5, 100.5)
+    #     ax1.set_ylim(0, 110)
+    #     ax1.set_xticks(x_ticks)
+    #     ax1.set_xticklabels(x_tick_labels, **tick_params)
+    #     ax1.set_yticks(np.arange(0, 111, 10))
+    #     ax1.tick_params(axis='y', labelsize=9)
+    #     ax1.grid(**grid_style)
+        
+    #     # Labels and titles
+    #     ax1.set_xlabel("Game Level", **axis_font, labelpad=10)
+    #     ax1.set_ylabel("Retention (%)", **axis_font, labelpad=10)
+    #     ax1.set_title(f"{game_name} - Player Retention Curve", 
+    #                  pad=20, **title_font)
+        
+    #     # Value annotations
+    #     for x, y in zip(levels[::5], df_100['Retention %'][::5]):
+    #         if not np.isnan(y):
+    #             ax1.text(x, y+2, f"{y:.0f}%", 
+    #                     ha='center', va='bottom', fontsize=8,
+    #                     bbox=dict(facecolor='white', edgecolor='none', pad=1))
+        
+    #     plt.tight_layout()
+    #     charts['retention'] = fig1
+
+        # ========== RETENTION CHART ==========
     if 'Retention %' in df_100.columns:
-        fig1, ax1 = plt.subplots(figsize=(16, 6))
-        ax1.plot(levels, df_100['Retention %'], 
-                color='#1f77b4', linewidth=2.5, marker='o', markersize=4)
+       fig1, ax1 = plt.subplots(figsize=(16, 6))
+       ax1.plot(levels, df_100['Retention %'], 
+            color='#1f77b4', linewidth=2.5, marker='o', markersize=4)
+    
+       # Axis formatting
+       ax1.set_xlim(0.5, 100.5)
+       ax1.set_ylim(0, 110)
+       ax1.set_xticks(x_ticks)
+    
+       # Improved spacing for x-axis labels
+       ax1.set_xticklabels(x_tick_labels, 
+                          **tick_params,
+                          rotation=45,
+                          ha='right',  # Better alignment for rotated labels
+                          rotation_mode='anchor')
+    
+       # Add space between ticks and labels
+       ax1.tick_params(axis='x', which='major', pad=8)
+    
+       # Add space between x-label and ticks
+       ax1.set_xlabel("Game Level", 
+                     **axis_font, 
+                     labelpad=15)  # Increased from 10 to 15
+    
+       # Y-axis formatting
+       ax1.set_ylabel("Retention (%)", 
+                     **axis_font, 
+                     labelpad=12)  # Added padding for y-label
+       ax1.tick_params(axis='y', labelsize=9, pad=5)
+    
+       # Add overall padding to the plot
+       plt.subplots_adjust(bottom=0.18)  # Increased bottom margin
+    
+       # Rest of the plot code remains same...
+       ax1.grid(**grid_style)
+       ax1.set_title(f"{game_name} - Player Retention Curve", 
+                    pad=20, **title_font)
+    
+       # Value annotations
+       for x, y in zip(levels[::5], df_100['Retention %'][::5]):
+           if not np.isnan(y):
+               ax1.text(x, y+2, f"{y:.0f}%", 
+                       ha='center', va='bottom', fontsize=8,
+                       bbox=dict(facecolor='white', edgecolor='none', pad=1))
+    
+       plt.tight_layout()
+       charts['retention'] = fig1
+
+
         
-        # Axis formatting
-        ax1.set_xlim(0.5, 100.5)
-        ax1.set_ylim(0, 110)
-        ax1.set_xticks(x_ticks)
-        ax1.set_xticklabels(x_tick_labels, **tick_params)
-        ax1.set_yticks(np.arange(0, 111, 10))
-        ax1.tick_params(axis='y', labelsize=9)
-        ax1.grid(**grid_style)
-        
-        # Labels and titles
-        ax1.set_xlabel("Game Level", **axis_font, labelpad=10)
-        ax1.set_ylabel("Retention (%)", **axis_font, labelpad=10)
-        ax1.set_title(f"{game_name} - Player Retention Curve", 
-                     pad=20, **title_font)
-        
-        # Value annotations
-        for x, y in zip(levels[::5], df_100['Retention %'][::5]):
-            if not np.isnan(y):
-                ax1.text(x, y+2, f"{y:.0f}%", 
-                        ha='center', va='bottom', fontsize=8,
-                        bbox=dict(facecolor='white', edgecolor='none', pad=1))
-        
-        plt.tight_layout()
-        charts['retention'] = fig1
 
     # ========== TOTAL DROP CHART ==========
     if 'Total Level Drop' in df_100.columns:
