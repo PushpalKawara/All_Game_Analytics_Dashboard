@@ -150,161 +150,190 @@ def process_files(start_df, complete_df):
     return merged
 
 
-# # ======================== CHART GENERATION ========================
+# ======================== CHART GENERATION ========================
 def create_charts(df, game_name):
-    """Generate enhanced matplotlib charts (levels 1–100 only)"""
+    """Generate enhanced matplotlib charts (levels 1–100 only) with improved error handling and visual design"""
     charts = {}
     plt.style.use('ggplot')
     
-    # Common formatting parameters
-    axis_font = {'fontsize': 12, 'fontweight': 'medium'}
-    title_font = {'fontsize': 14, 'fontweight': 'bold'}
-    tick_params = {'labelsize': 10, 'labelcolor': '#4f4f4f'}
-    grid_style = {'alpha': 0.7, 'linestyle': '--', 'linewidth': 0.5}
+    # Custom color scheme
+    colors = {
+        'retention': '#2c7bb6',
+        'total_drop': '#d7191c',
+        'game_drop': '#4dac26',
+        'popup_drop': '#ff7f00',
+        'annotation': '#444444'
+    }
+    
+    # Formatting parameters
+    axis_font = {'fontsize': 12, 'fontweight': 'medium', 'color': '#444444'}
+    title_font = {'fontsize': 16, 'fontweight': 'bold', 'color': '#2d2d2d'}
+    tick_params = {'labelsize': 11, 'labelcolor': '#666666'}
+    grid_style = {'alpha': 0.4, 'linestyle': ':', 'linewidth': 0.8}
     
     # Filter and clean data
-    df_100 = df[df['LEVEL'] <= 100].copy()
-    if df_100.empty:
-        return charts  # Return empty if no data
+    df_100 = df[(df['LEVEL'] <= 100) & (df['LEVEL'] >= 1)].copy()
+    if df_100.empty or len(df_100) < 3:  # Minimum 3 data points
+        return charts
     
-    # Clean numerical columns
+    # Clean numerical columns with improved error handling
     numeric_cols = ['Retention %', 'Total Level Drop', 'Game Play Drop', 'Popup Drop']
     for col in numeric_cols:
         if col in df_100.columns:
             df_100[col] = pd.to_numeric(df_100[col], errors='coerce')
-            df_100[col] = df_100[col].replace([np.inf, -np.inf], np.nan).fillna(0)
+            df_100[col] = df_100[col].replace([np.inf, -np.inf], np.nan)
+            df_100[col] = df_100[col].fillna(0).clip(lower=0)
     
     levels = df_100['LEVEL'].unique()
+    if len(levels) < 3:
+        return charts  # Not enough data points for meaningful charts
     
-    # X-axis configuration
+    # Common x-axis configuration
     x_ticks = np.arange(1, 101, 5)
-    x_tick_labels = [f"Level {v}" if v%10==0 else str(v) for v in x_ticks]
-
+    x_tick_labels = [f"Lv.{v}" if v%10==0 else str(v) for v in x_ticks]
+    x_lim = (0.5, 100.5)
+    
     # ========== RETENTION CHART ==========
     if 'Retention %' in df_100.columns:
-        fig1, ax1 = plt.subplots(figsize=(18, 7))
-        
-        # Get safe y-values
-        y_values = df_100['Retention %'].clip(0, 100)
-        
-        ax1.plot(levels, y_values, 
-                color='#1f77b4', linewidth=2.5, marker='o', markersize=6)
-        
-        # Safe axis limits
-        y_min = max(0, np.nanmin(y_values) - 5)
-        y_max = min(100, np.nanmax(y_values) + 5)
-        ax1.set_ylim(y_min if not np.isnan(y_min) else 0, 
-                    y_max if not np.isnan(y_max) else 100)
-        
-        ax1.set_xlim(0.5, 100.5)
-        ax1.set_xticks(x_ticks)
-        ax1.set_xticklabels(x_tick_labels, 
-                           rotation=45, 
-                           ha='right',
-                           fontsize=10)
-        
-        ax1.tick_params(axis='x', pad=12)
-        ax1.tick_params(axis='y', pad=8)
-        
-        ax1.set_xlabel("Game Level", **axis_font, labelpad=15)
-        ax1.set_ylabel("Retention (%)", **axis_font, labelpad=15)
-        ax1.set_title(f"{game_name} - Player Retention Curve", 
-                     pad=25, **title_font)
-        ax1.grid(**grid_style)
-        
-        # Annotations
-        for x, y in zip(levels[::5], y_values[::5]):
-            if y > 0:
-                ax1.text(x, y+2, f"{y:.0f}%", 
-                        ha='center', va='bottom', fontsize=10,
-                        bbox=dict(facecolor='white', edgecolor='none', pad=2))
-        
-        plt.subplots_adjust(bottom=0.2)
-        plt.tight_layout()
-        charts['retention'] = fig1
+        try:
+            fig1, ax1 = plt.subplots(figsize=(20, 8))
+            plt.suptitle(game_name, y=0.98, **title_font)
+            
+            y_values = df_100['Retention %'].clip(0, 100)
+            valid_values = y_values[y_values > 0]
+            
+            if len(valid_values) > 1:
+                # Modern area chart style
+                ax1.fill_between(levels, y_values, color=colors['retention'], alpha=0.15)
+                ax1.plot(levels, y_values, color=colors['retention'], 
+                        linewidth=3, marker='o', markersize=8, markeredgecolor='white')
+                
+                # Dynamic axis scaling
+                y_min = max(0, np.nanpercentile(y_values, 5) - 5)
+                y_max = min(100, np.nanpercentile(y_values, 95) + 5)
+                ax1.set_ylim(y_min if not np.isnan(y_min) else 0, 
+                            y_max if not np.isnan(y_max) else 100)
+                
+                # Annotation logic
+                peak_idx = np.argmax(y_values)
+                if y_values.iloc[peak_idx] > 50:
+                    ax1.annotate(f'Peak Retention: {y_values.iloc[peak_idx]:.0f}%',
+                                xy=(levels[peak_idx], y_values.iloc[peak_idx]),
+                                xytext=(levels[peak_idx], y_values.iloc[peak_idx] + 15),
+                                arrowprops=dict(arrowstyle='->', lw=1.5),
+                                fontsize=12, ha='center')
+                
+                # Add trendline
+                z = np.polyfit(levels, y_values, 1)
+                p = np.poly1d(z)
+                ax1.plot(levels, p(levels), '--', color='#666666', 
+                        alpha=0.7, lw=2, label='Trend')
+                
+                ax1.legend(loc='upper right', framealpha=0.9)
+
+            # Common formatting
+            ax1.set(xlim=x_lim, xticks=x_ticks, xlabel='Game Level', ylabel='Retention (%)')
+            ax1.set_xticklabels(x_tick_labels, rotation=45, ha='right', fontsize=11)
+            ax1.tick_params(axis='both', which='major', pad=10)
+            ax1.grid(**grid_style)
+            
+            # Add data source annotation
+            ax1.text(1, -0.18, "Source: Game Analytics Data", transform=ax1.transAxes,
+                     fontsize=9, color='#666666', ha='right')
+            
+            plt.tight_layout()
+            charts['retention'] = fig1
+        except Exception as e:
+            print(f"Error generating retention chart: {str(e)}")
+            plt.close()
 
     # ========== TOTAL DROP CHART ==========
     if 'Total Level Drop' in df_100.columns:
-        fig2, ax2 = plt.subplots(figsize=(18, 7))
-        
-        # Get safe y-values
-        y_values = df_100['Total Level Drop'].clip(0, None)
-        y_max = np.nanmax(y_values) * 1.2 if not np.isnan(np.nanmax(y_values)) else 10
-        
-        bars = ax2.bar(levels, y_values, 
-                      color='#ff7f0e', width=0.8)
-        
-        ax2.set_xlim(0.5, 100.5)
-        ax2.set_ylim(0, y_max)
-        ax2.set_xticks(x_ticks)
-        ax2.set_xticklabels(x_tick_labels, 
-                           rotation=45, 
-                           ha='right',
-                           fontsize=10)
-        
-        ax2.tick_params(axis='x', pad=12)
-        ax2.tick_params(axis='y', pad=8)
-        
-        ax2.set_xlabel("Game Level", **axis_font, labelpad=15)
-        ax2.set_ylabel("Total Drop Rate (%)", **axis_font, labelpad=15)
-        ax2.set_title(f"{game_name} - Total Player Drop Rate", 
-                     pad=25, **title_font)
-        ax2.grid(**grid_style)
-        
-        for bar in bars[::5]:
-            height = bar.get_height()
-            if height > 0:
-                ax2.text(bar.get_x() + bar.get_width()/2, height+0.5,
-                        f"{height:.0f}%", ha='center', va='bottom',
-                        fontsize=10, color='#4f4f4f')
-        
-        plt.subplots_adjust(bottom=0.2)
-        plt.tight_layout()
-        charts['total_drop'] = fig2
+        try:
+            fig2, ax2 = plt.subplots(figsize=(20, 8))
+            plt.suptitle(game_name, y=0.98, **title_font)
+            
+            y_values = df_100['Total Level Drop'].clip(0, None)
+            y_max = np.nanmax(y_values) * 1.3 if not np.isnan(np.nanmax(y_values)) else 20
+            
+            # Gradient color bars
+            cmap = plt.cm.Reds
+            norm = plt.Normalize(0, y_max)
+            colors = [cmap(norm(value)) for value in y_values]
+            
+            bars = ax2.bar(levels, y_values, width=0.9, color=colors, edgecolor='white')
+            
+            # Add threshold markers
+            ax2.axhline(10, color='#990000', linestyle='--', lw=1.5, alpha=0.7)
+            ax2.text(101, 10, " Critical Threshold", va='center', color='#990000', fontsize=10)
+            
+            # Annotation logic
+            max_drop_idx = np.argmax(y_values)
+            if y_values.iloc[max_drop_idx] > 10:
+                ax2.annotate(f'Critical Drop: {y_values.iloc[max_drop_idx]:.0f}%',
+                            xy=(levels[max_drop_idx], y_values.iloc[max_drop_idx]),
+                            xytext=(levels[max_drop_idx], y_values.iloc[max_drop_idx] + y_max*0.1),
+                            arrowprops=dict(arrowstyle='->', lw=1.5),
+                            fontsize=12, ha='center')
+
+            ax2.set(xlim=x_lim, ylim=(0, y_max), 
+                   xticks=x_ticks, xlabel='Game Level', ylabel='Total Drop Rate (%)')
+            ax2.set_xticklabels(x_tick_labels, rotation=45, ha='right', fontsize=11)
+            ax2.grid(**grid_style)
+            
+            plt.tight_layout()
+            charts['total_drop'] = fig2
+        except Exception as e:
+            print(f"Error generating total drop chart: {str(e)}")
+            plt.close()
 
     # ========== COMBO DROP CHART ==========
     if {'Game Play Drop', 'Popup Drop'}.issubset(df_100.columns):
-        fig3, ax3 = plt.subplots(figsize=(18, 7))
-        bar_width = 0.35
-        
-        # Clean data
-        game_drop = df_100['Game Play Drop'].clip(0, None)
-        popup_drop = df_100['Popup Drop'].clip(0, None)
-        
-        # Calculate safe max value
-        max_game = np.nanmax(game_drop) if not np.isnan(np.nanmax(game_drop)) else 0
-        max_popup = np.nanmax(popup_drop) if not np.isnan(np.nanmax(popup_drop)) else 0
-        max_drop = max(max_game, max_popup, 10)
-        
-        bars1 = ax3.bar(levels - bar_width/2, game_drop,
-                       bar_width, color='#2ca02c', label='Game Play Drop')
-        bars2 = ax3.bar(levels + bar_width/2, popup_drop,
-                       bar_width, color='#d62728', label='Popup Drop')
-        
-        ax3.set_xlim(0.5, 100.5)
-        ax3.set_ylim(0, max_drop * 1.2)
-        ax3.set_xticks(x_ticks)
-        ax3.set_xticklabels(x_tick_labels, 
-                           rotation=45, 
-                           ha='right',
-                           fontsize=10)
-        
-        ax3.tick_params(axis='x', pad=12)
-        ax3.tick_params(axis='y', pad=8)
-        
-        ax3.set_xlabel("Game Level", **axis_font, labelpad=15)
-        ax3.set_ylabel("Drop Rate (%)", **axis_font, labelpad=15)
-        ax3.set_title(f"{game_name} - Detailed Drop Analysis", 
-                     pad=25, **title_font)
-        ax3.legend(frameon=True, fontsize=11, loc='upper right')
-        ax3.grid(**grid_style)
-        
-        plt.subplots_adjust(bottom=0.2)
-        plt.tight_layout()
-        charts['combined_drop'] = fig3
+        try:
+            fig3, ax3 = plt.subplots(figsize=(20, 8))
+            plt.suptitle(game_name, y=0.98, **title_font)
+            
+            bar_width = 0.4
+            game_drop = df_100['Game Play Drop'].clip(0, None)
+            popup_drop = df_100['Popup Drop'].clip(0, None)
+            
+            # Calculate stacked values
+            total_drop = game_drop + popup_drop
+            max_drop = np.nanmax(total_drop) * 1.3 if not np.isnan(np.nanmax(total_drop)) else 30
+            
+            # Modern bar plot with pattern fills
+            bars1 = ax3.bar(levels - bar_width/2, game_drop, bar_width,
+                           color=colors['game_drop'], hatch='///', edgecolor='white',
+                           label='Game Play Drop')
+            bars2 = ax3.bar(levels + bar_width/2, popup_drop, bar_width,
+                           color=colors['popup_drop'], hatch='xxx', edgecolor='white',
+                           label='Popup Drop')
+            
+            # Add line plot overlay
+            ax3_line = ax3.twinx()
+            ax3_line.plot(levels, total_drop, color='#666666', lw=2.5, marker='D',
+                         markersize=8, label='Total Drop')
+            ax3_line.set_ylim(0, max_drop)
+            ax3_line.tick_params(axis='y', labelcolor='#666666')
+            ax3_line.set_ylabel('Total Drop Rate (%)', color='#666666', **axis_font)
+            
+            # Combined legend
+            lines, labels = ax3.get_legend_handles_labels()
+            lines2, labels2 = ax3_line.get_legend_handles_labels()
+            ax3.legend(lines + lines2, labels + labels2, loc='upper left', framealpha=0.9)
+
+            ax3.set(xlim=x_lim, ylim=(0, max_drop), 
+                   xticks=x_ticks, xlabel='Game Level', ylabel='Drop Rate (%)')
+            ax3.set_xticklabels(x_tick_labels, rotation=45, ha='right', fontsize=11)
+            ax3.grid(**grid_style)
+            
+            plt.tight_layout()
+            charts['combined_drop'] = fig3
+        except Exception as e:
+            print(f"Error generating combo drop chart: {str(e)}")
+            plt.close()
 
     return charts
-
 # ======================== EXCEL GENERATION ========================
 def generate_excel(processed_data):
     """Create Excel workbook with formatted sheets"""
