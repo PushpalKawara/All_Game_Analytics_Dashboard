@@ -158,14 +158,22 @@ def create_charts(df, game_name):
     # Filter up to level 100 only
     df_100 = df[df['LEVEL'] <= 100]
 
+    # # Custom x tick labels
+    # xtick_labels = [
+    #     f"$\\bf{{{val}}}$" if val % 5 == 0 else str(val)
+    #     for val in np.arange(1, 101)
+    # ]
     # Custom x tick labels
-    xtick_labels = [
-        f"$\\bf{{{val}}}$" if val % 5 == 0 else str(val)
-        for val in np.arange(1, 101)
-    ]
+    xtick_labels = []
+    for val in np.arange(1, 101, 1):
+        if val % 5 == 0:
+            xtick_labels.append(f"$\\bf{{{val}}}$")  # Bold using LaTeX
+        else:
+            xtick_labels.append(str(val))
+
 
     # ========== RETENTION CHART ==========
-    fig1, ax1 = plt.subplots(figsize=(12, 4))
+    fig1, ax1 = plt.subplots(figsize=(15, 7))
     if 'Retention %' in df_100.columns and not df_100['Retention %'].dropna().empty:
         ax1.plot(df_100['LEVEL'], df_100['Retention %'],
                  linestyle='-', color='#F57C00', linewidth=2, label='Retention')
@@ -186,12 +194,12 @@ def create_charts(df, game_name):
 
         for x, y in zip(df_100['LEVEL'], df_100['Retention %']):
             if not np.isnan(y):
-                ax1.text(x, -5, f"{int(y)}", ha='center', va='top', fontsize=7)
+                ax1.text(x, -5, f"{int(y)}", ha='center', va='top', fontsize=5)
 
     charts['retention'] = fig1
 
     # ========== TOTAL DROP CHART ==========
-    fig2, ax2 = plt.subplots(figsize=(12, 4))
+    fig2, ax2 = plt.subplots(figsize=(15, 7))
     if 'Total Level Drop' in df_100.columns and not df_100['Total Level Drop'].dropna().empty:
         bars = ax2.bar(df_100['LEVEL'], df_100['Total Level Drop'],
                        color='#EF5350', label='Drop Rate')
@@ -217,12 +225,12 @@ def create_charts(df, game_name):
         for bar in bars:
             x = bar.get_x() + bar.get_width() / 2
             y = bar.get_height()
-            ax2.text(x, -2, f"{y:.0f}", ha='center', va='top', fontsize=7)
+            ax2.text(x, -2, f"{y:.0f}", ha='center', va='top', fontsize=5)
 
     charts['total_drop'] = fig2
 
     # ========== COMBO DROP CHART ==========
-    fig3, ax3 = plt.subplots(figsize=(12, 4))
+    fig3, ax3 = plt.subplots(figsize=(15, 7))
     if ('Game Play Drop' in df_100.columns and
         'Popup Drop' in df_100.columns and
         not df_100['Game Play Drop'].dropna().empty and
