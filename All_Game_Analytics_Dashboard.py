@@ -174,7 +174,7 @@ def create_charts(df, game_name):
         ax1.set_ylim(0, 110)
         ax1.set_xticks(np.arange(1, 101, 1))
         ax1.set_yticks(np.arange(0, 111, 5))
-        ax1.set_xticklabels(xtick_labels, fontsize=6)
+        ax1.set_xticklabels(xtick_labels, fontsize=4)
         ax1.tick_params(axis='x', labelsize=6)
         ax1.grid(True, linestyle='--', linewidth=0.5)
 
@@ -204,7 +204,7 @@ def create_charts(df, game_name):
         ax2.set_ylim(0, ymax)
         ax2.set_xticks(np.arange(1, 101, 1))
         ax2.set_yticks(np.arange(0, ymax + 1, 5))
-        ax2.set_xticklabels(xtick_labels, fontsize=6)
+        ax2.set_xticklabels(xtick_labels, fontsize=4)
         ax2.tick_params(axis='x', labelsize=6)
         ax2.grid(True, linestyle='--', linewidth=0.5)
 
@@ -245,15 +245,15 @@ def create_charts(df, game_name):
         ax3.set_ylim(0, max_drop)
         ax3.set_xticks(np.arange(1, 101, 1))
         ax3.set_yticks(np.arange(0, max_drop + 1, 5))
-        ax3.set_xticklabels(xtick_labels, fontsize=6)
+        ax3.set_xticklabels(xtick_labels, fontsize=4)
         ax3.tick_params(axis='x', labelsize=6)
         ax3.grid(True, linestyle='--', linewidth=0.5)
 
         ax3.set_xlabel("Level")
         ax3.set_ylabel("% Of Users Dropped")
         ax3.set_title(f"{game_name} | Game Play & Popup Drop (Levels 1–100)",
-                      fontsize=12, fontweight='bold')
-        ax3.legend(loc='upper right', fontsize=8)
+                      fontsize=10, fontweight='bold')
+        ax3.legend(loc='upper right', fontsize=6)
 
     charts['combined_drop'] = fig3
 
