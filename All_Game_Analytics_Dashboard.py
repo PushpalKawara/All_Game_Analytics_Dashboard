@@ -182,7 +182,7 @@ def create_charts(df, game_name):
         ax1.set_xticks(x_ticks)
         ax1.set_xticklabels(x_tick_labels, **tick_params)
         ax1.set_yticks(np.arange(0, 111, 10))
-        ax1.tick_params(axis='y', labelsize=9)
+        ax1.tick_params(axis='y', labelsize=6)
         ax1.grid(**grid_style)
         
         # Labels and titles
@@ -213,7 +213,7 @@ def create_charts(df, game_name):
         ax2.set_ylim(0, df_100['Total Level Drop'].max()*1.2)
         ax2.set_xticks(x_ticks)
         ax2.set_xticklabels(x_tick_labels, **tick_params)
-        ax2.tick_params(axis='y', labelsize=9)
+        ax2.tick_params(axis='y', labelsize=6)
         ax2.grid(**grid_style)
         
         # Labels and titles
@@ -250,7 +250,7 @@ def create_charts(df, game_name):
         ax3.set_ylim(0, max_drop*1.2)
         ax3.set_xticks(x_ticks)
         ax3.set_xticklabels(x_tick_labels, **tick_params)
-        ax3.tick_params(axis='y', labelsize=9)
+        ax3.tick_params(axis='y', labelsize=6)
         ax3.grid(**grid_style)
         
         # Labels and titles
