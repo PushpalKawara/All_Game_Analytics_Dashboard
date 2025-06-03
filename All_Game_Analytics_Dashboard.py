@@ -32,13 +32,14 @@ def process_files(start_df, complete_df):
 
     # Flexible column matching
     level_col = get_column(start_df, ['LEVEL', 'TOTALLEVELS', 'STAGE'])
-    game_col = get_column(start_df, ['GAME_ID', 'CATEGORY', 'Game_name'])
+    game_col = get_column(start_df, ['GAME_ID', 'CATEGORY', 'Game_name' , 'MISSION'])
     diff_col = get_column(start_df, ['DIFFICULTY', 'mode'])
 
     playtime_col = get_column(complete_df, ['PLAY_TIME_AVG', 'PLAYTIME', 'PLAYTIME_AVG', 'playtime_avg'])
     hint_col = get_column(complete_df, ['HINT_USED_SUM', 'HINT_USED', 'HINT'])
     skipped_col = get_column(complete_df, ['SKIPPED_SUM', 'SKIPPED', 'SKIP'])
     attempts_col = get_column(complete_df, ['ATTEMPTS_SUM', 'ATTEMPTS', 'TRY_COUNT'])
+    retry_col = get_column(complete_df, ['RETRY_SUM', 'RETRY'])
 
     # Clean LEVELs
     for df in [start_df, complete_df]:
@@ -136,7 +137,7 @@ def process_files(start_df, complete_df):
 
     # Fill NaN values
     fill_cols = ['Start Users', 'Complete Users']
-    key_columns = ['PLAY_TIME_AVG', 'HINT_USED_SUM', 'SKIPPED_SUM', 'ATTEMPTS_SUM']
+    key_columns = ['PLAY_TIME_AVG', 'HINT_USED_SUM', 'SKIPPED_SUM', 'ATTEMPTS_SUM', 'RETRY_SUM']
     for col in key_columns:
         if col in merged.columns:
             fill_cols.append(col)
@@ -287,7 +288,7 @@ def generate_excel(processed_data):
 
         headers = ["=HYPERLINK(\"#MAIN_TAB!A1\", \"Back to Main\")", "Start Users", "Complete Users",
                    "Game Play Drop", "Popup Drop", "Total Level Drop", "Retention %",
-                   "PLAY_TIME_AVG", "HINT_USED_SUM", "SKIPPED_SUM", "ATTEMPTS_SUM"]
+                   "PLAY_TIME_AVG", "HINT_USED_SUM", "SKIPPED_SUM", "ATTEMPTS_SUM", "RETRY_SUM"]
         ws.append(headers)
         ws['A1'].font = Font(color="0000FF", underline="single", bold=True, size=14)
         ws['A1'].fill = PatternFill("solid", fgColor="FFFF00")
@@ -307,6 +308,7 @@ def generate_excel(processed_data):
                 round(row.get('HINT_USED_SUM', 0), 2),
                 round(row.get('SKIPPED_SUM', 0), 2),
                 round(row.get('ATTEMPTS_SUM', 0), 2),
+                round(row.get('RETRY_SUM', 0), 2),   
             ]
             ws.append(row_values)
 
