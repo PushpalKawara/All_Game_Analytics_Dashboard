@@ -271,9 +271,9 @@ def generate_excel(processed_data):
     wb.remove(wb.active)  # Remove default sheet
 
     main_sheet = wb.create_sheet("MAIN_TAB")
-    main_headers = ["Index", "Sheet Name", "Game Play Drop Count", "Popup Drop Count",
-                    "Total Level Drop Count", "LEVEL_Start", "Start Users",
-                    "LEVEL_End", "USERS_END", "Link to Sheet"]
+    main_headers = ["Index", "Sheet Name", "Link to Sheet", "LEVEL_Start", "Start Users",
+                    "LEVEL_End", "USERS_END", "Game Play Drop Count", "Popup Drop Count",
+                    "Total Level Drop Count"]
     main_sheet.append(main_headers)
 
     # Format main headers
