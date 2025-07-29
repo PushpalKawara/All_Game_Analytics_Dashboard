@@ -321,14 +321,15 @@ def generate_excel(processed_data):
         # Update MAIN_TAB
         main_row = [
             idx, sheet_name,
-            sum(df.get('Game Play Drop', 0) >= 3),
-            sum(df.get('Popup Drop', 0) >= 3),
-            sum(df.get('Total Level Drop', 0) >= 3),
+            f'=HYPERLINK("#{sheet_name}!A1", "View")',
             df.get('LEVEL', 0).min(),
             df.get('Start Users', 0).max(),
             df.get('LEVEL', 0).max(),
             df.get('Complete Users', 0).iloc[-1] if not df.empty else 0,
-            f'=HYPERLINK("#{sheet_name}!A1", "View")'
+            sum(df.get('Game Play Drop', 0) >= 3),
+            sum(df.get('Popup Drop', 0) >= 3),
+            sum(df.get('Total Level Drop', 0) >= 3)
+            
         ]
         main_sheet.append(main_row)
 
